@@ -156,7 +156,7 @@ class ConcluirRequest(BaseModel):
 
 
 class AprovarRequest(BaseModel):
-    resolucao_final: str = Field(..., min_length=3, max_length=2000)
+    resolucao_final: Optional[str] = Field(default=None, max_length=2000)
 
 
 class ReprovarRequest(BaseModel):

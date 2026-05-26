@@ -475,7 +475,7 @@ async def web_aprovar(
     ocorrencia_id: int,
     current_user: Usuario = Depends(get_current_web_user),
     db: Session = Depends(get_write_db),
-    resolucao_final: str = Form(...),
+    resolucao_final: Optional[str] = Form(None),
 ):
     try:
         ocorrencia_service.aprovar(db, ocorrencia_id, AprovarRequest(resolucao_final=resolucao_final), current_user)

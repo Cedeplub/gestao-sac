@@ -459,9 +459,9 @@
         <form action="/ocorrencias/{{ ocorrencia.id }}/aprovar" method="post" class="p-6 space-y-4">
             <div>
                 <label class="mb-1.5 block text-sm font-semibold text-gray-700">
-                    Resolução Final <span class="text-red-500">*</span>
+                    Resolução Final <span class="font-normal text-gray-400">(opcional)</span>
                 </label>
-                <textarea name="resolucao_final" rows="4" required minlength="3" maxlength="2000"
+                <textarea name="resolucao_final" rows="4" maxlength="2000"
                           placeholder="Descreva a resolução final da ocorrência..."
                           class="w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm placeholder-gray-400 transition focus:border-green-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-100"></textarea>
             </div>
