@@ -1,0 +1,85 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="flex h-full min-h-screen">
+
+    <!-- Sidebar -->
+    <aside class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar-bg">
+        <!-- Logo -->
+        <div class="flex h-16 items-center justify-center border-b border-gray-700 px-4">
+            <div class="flex items-center gap-2">
+                <i data-lucide="clipboard-list" class="h-6 w-6 text-blue-400"></i>
+                <span class="text-lg font-bold text-white">Gestão SAC</span>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 space-y-1 px-3 py-4">
+            <a href="/"
+               class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+                      {% if request.url.path == '/' %}bg-sidebar-hover text-sidebar-active{% else %}text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active{% endif %}">
+                <i data-lucide="layout-dashboard" class="h-4 w-4 flex-shrink-0"></i>
+                Dashboard
+            </a>
+
+            <a href="/ocorrencias"
+               class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+                      {% if '/ocorrencias' in request.url.path %}bg-sidebar-hover text-sidebar-active{% else %}text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active{% endif %}">
+                <i data-lucide="file-warning" class="h-4 w-4 flex-shrink-0"></i>
+                Ocorrências
+            </a>
+
+            {% if current_user.papel == 'GERENTE' %}
+            <a href="/usuarios"
+               class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
+                      {% if '/usuarios' in request.url.path %}bg-sidebar-hover text-sidebar-active{% else %}text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active{% endif %}">
+                <i data-lucide="users" class="h-4 w-4 flex-shrink-0"></i>
+                Usuários
+            </a>
+            {% endif %}
+        </nav>
+
+        <!-- User info at bottom -->
+        <div class="border-t border-gray-700 p-4">
+            <div class="flex items-center gap-3">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 flex-shrink-0">
+                    <span class="text-xs font-bold text-white">{{ current_user.nome[0] | upper }}</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium text-sidebar-active">{{ current_user.nome }}</p>
+                    <p class="truncate text-xs text-sidebar-text">
+                        {% if current_user.papel == 'GERENTE' %}Gerente{% else %}Operador{% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex flex-1 flex-col pl-64">
+
+        <!-- Top bar -->
+        <header class="sticky top-0 z-30 flex h-16 min-h-[4rem] items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
+            <div class="flex items-center gap-4 min-w-0">
+                <h1 class="truncate text-lg font-semibold text-gray-900">{{ page_title | default('') }}</h1>
+                {% block header_actions %}{% endblock %}
+            </div>
+            <div class="flex flex-shrink-0 items-center gap-3 border-l border-gray-200 pl-4">
+                <span class="hidden text-sm text-gray-500 sm:block">{{ current_user.nome }}</span>
+                <form action="/logout" method="post">
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-red-600">
+                        <i data-lucide="log-out" class="h-4 w-4"></i>
+                        Sair
+                    </button>
+                </form>
+            </div>
+        </header>
+
+        <!-- Page content -->
+        <main class="flex-1 p-6">
+            {% block page_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}

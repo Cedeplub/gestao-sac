@@ -1,0 +1,524 @@
+{% extends "base/authenticated.html" %}
+
+{% block title %}Ocorrência #{{ ocorrencia.id }} — Gestão SAC{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-3">
+    <a href="/ocorrencias" class="inline-flex items-center gap-1 text-sm text-gray-400 transition hover:text-gray-600">
+        <i data-lucide="arrow-left" class="h-4 w-4"></i> Ocorrências
+    </a>
+    <span class="text-gray-300">/</span>
+    {% set status = ocorrencia.status %}
+    {% include "partials/badge_status.html" %}
+</div>
+{% endblock %}
+
+{% block page_content %}
+<div x-data="{ modal: '' }">
+<div class="mx-auto max-w-4xl space-y-5">
+
+    {% set s = ocorrencia.status %}
+    {% set pode_editar = current_user.papel == 'GERENTE' or ocorrencia.atribuido_a_id == current_user.id or ocorrencia.criado_por_id == current_user.id %}
+
+    <!-- ===== BARRA DE AÇÕES ===== -->
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-sm">
+        <p class="text-xs text-gray-400">
+            Criada por <span class="font-medium text-gray-600">{{ ocorrencia.criado_por_nome or '—' }}</span>
+            {% if ocorrencia.created_at %}em {{ ocorrencia.created_at.strftime('%d/%m/%Y às %H:%M') }}{% endif %}
+            · Atribuída a <span class="font-medium text-gray-600">{{ ocorrencia.atribuido_a_nome or '—' }}</span>
+        </p>
+        <div class="flex flex-wrap items-center gap-2">
+            {% if s == 'EM_TRATAMENTO' and pode_editar %}
+                <a href="/ocorrencias/{{ ocorrencia.id }}/editar"
+                   class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
+                    <i data-lucide="pencil" class="h-4 w-4"></i> Editar
+                </a>
+                <button @click="modal = 'pendente'"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 text-sm font-medium text-amber-700 shadow-sm transition hover:bg-amber-100">
+                    <i data-lucide="clock" class="h-4 w-4"></i> Marcar Pendente
+                </button>
+                <button @click="modal = 'aprovar_envio'"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                    <i data-lucide="send" class="h-4 w-4"></i> Enviar para Aprovação
+                </button>
+
+            {% elif s == 'PENDENTE' and pode_editar %}
+                <form action="/ocorrencias/{{ ocorrencia.id }}/voltar" method="post" class="inline">
+                    <button class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
+                        <i data-lucide="rotate-ccw" class="h-4 w-4"></i> Reabrir
+                    </button>
+                </form>
+                <button @click="modal = 'aprovar_envio'"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                    <i data-lucide="send" class="h-4 w-4"></i> Enviar para Aprovação
+                </button>
+
+            {% elif s == 'ENCAMINHADO' and pode_editar %}
+                <form action="/ocorrencias/{{ ocorrencia.id }}/voltar" method="post" class="inline">
+                    <button class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50">
+                        <i data-lucide="rotate-ccw" class="h-4 w-4"></i> Reabrir
+                    </button>
+                </form>
+                <button @click="modal = 'aprovar_envio'"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                    <i data-lucide="send" class="h-4 w-4"></i> Enviar para Aprovação
+                </button>
+
+            {% elif s == 'CONCLUIDO' %}
+                {% if current_user.papel == 'GERENTE' %}
+                <button @click="modal = 'aprovar'"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                    <i data-lucide="check-circle" class="h-4 w-4"></i> Aprovar e Finalizar
+                </button>
+                <button @click="modal = 'reprovar'"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700">
+                    <i data-lucide="x-circle" class="h-4 w-4"></i> Reprovar
+                </button>
+                {% else %}
+                <span class="inline-flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700">
+                    <i data-lucide="clock" class="h-4 w-4"></i> Aguardando aprovação do gerente
+                </span>
+                {% endif %}
+
+            {% elif s == 'FINALIZADO' %}
+                <span class="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+                    <i data-lucide="check-circle" class="h-4 w-4"></i>
+                    Finalizado por {{ ocorrencia.aprovado_por_nome or '—' }}
+                    {% if ocorrencia.aprovado_em %}· {{ ocorrencia.aprovado_em.strftime('%d/%m/%Y') }}{% endif %}
+                </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Mensagens -->
+
+    {% if sucesso %}
+    <div class="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+        <i data-lucide="check-circle" class="h-4 w-4 flex-shrink-0"></i><span>{{ sucesso }}</span>
+    </div>
+    {% endif %}
+    {% if erro %}
+    <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0"></i><span>{{ erro }}</span>
+    </div>
+    {% endif %}
+
+    <!-- ===== CARD: NOTA FISCAL ===== -->
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50 px-6 py-3.5">
+            <i data-lucide="file-text" class="h-4 w-4 text-blue-500"></i>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Nota Fiscal</h2>
+        </div>
+        <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-4">
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">NF</p>
+                <p class="mt-1 text-base font-bold text-gray-900">#{{ ocorrencia.numero_nota_fiscal }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Faturamento</p>
+                <p class="mt-1 text-sm font-semibold text-gray-800">{{ ocorrencia.data_faturamento.strftime('%d/%m/%Y') if ocorrencia.data_faturamento else '—' }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Saída</p>
+                <p class="mt-1 text-sm font-semibold text-gray-800">{{ ocorrencia.data_saida_carregamento.strftime('%d/%m/%Y') if ocorrencia.data_saida_carregamento else '—' }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Valor Total</p>
+                <p class="mt-1 text-sm font-bold text-blue-700">{% if ocorrencia.valor_total %}R$&nbsp;{{ "%.2f"|format(ocorrencia.valor_total)|replace('.', ',') }}{% else %}—{% endif %}</p>
+            </div>
+            <div class="col-span-2 bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Cliente</p>
+                <p class="mt-1 text-sm font-semibold text-gray-800">{{ ocorrencia.cliente or '—' }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Vendedor</p>
+                <p class="mt-1 text-sm font-medium text-gray-700">{{ ocorrencia.vendedor or '—' }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Motorista / Transp.</p>
+                <p class="mt-1 text-sm font-medium text-gray-700">{{ ocorrencia.motorista or '—' }}{% if ocorrencia.transportadora %}<span class="text-gray-400"> · </span>{{ ocorrencia.transportadora }}{% endif %}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CARD: DADOS DA OCORRÊNCIA ===== -->
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50 px-6 py-3.5">
+            <i data-lucide="alert-triangle" class="h-4 w-4 text-orange-500"></i>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Classificação da Ocorrência</h2>
+        </div>
+
+        <!-- Linha 1: Campos principais -->
+        <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-4">
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Motivo</p>
+                <p class="mt-1 text-sm font-semibold text-gray-900">{{ motivo_labels.get(ocorrencia.motivo, ocorrencia.motivo) if ocorrencia.motivo else '—' }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Tipo de Ocorrência</p>
+                <p class="mt-1 text-sm font-semibold text-gray-900">{{ tipo_labels.get(ocorrencia.tipo_ocorrencia, ocorrencia.tipo_ocorrencia) if ocorrencia.tipo_ocorrencia else '—' }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Causa Raiz</p>
+                <p class="mt-1 text-sm font-medium text-gray-700">{{ causa_labels.get(ocorrencia.causa_raiz, ocorrencia.causa_raiz) if ocorrencia.causa_raiz else '—' }}</p>
+            </div>
+            <div class="bg-white px-5 py-4">
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Responsável</p>
+                <p class="mt-1 text-sm font-medium text-gray-700">{{ responsavel_labels.get(ocorrencia.responsavel_tipo, ocorrencia.responsavel_tipo) if ocorrencia.responsavel_tipo else '—' }}</p>
+            </div>
+        </div>
+
+        {% if ocorrencia.responsavel_descricao %}
+        <div class="border-t border-gray-100 px-5 py-4">
+            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Identificação do Responsável</p>
+            <p class="mt-1 text-sm text-gray-700">{{ ocorrencia.responsavel_descricao }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Textos -->
+        {% if ocorrencia.descricao %}
+        <div class="border-t border-gray-100 px-5 py-4">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">Observações</p>
+            <p class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap border border-gray-100">{{ ocorrencia.descricao }}</p>
+        </div>
+        {% endif %}
+
+        {% if ocorrencia.motivo_pendencia %}
+        <div class="border-t border-amber-100 bg-amber-50 px-5 py-4">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-amber-600">Motivo da Pendência</p>
+            <p class="rounded-lg bg-white px-4 py-3 text-sm text-amber-800 whitespace-pre-wrap border border-amber-100">{{ ocorrencia.motivo_pendencia }}</p>
+        </div>
+        {% endif %}
+
+        {% if ocorrencia.resolucao_encaminhamento %}
+        <div class="border-t border-gray-100 px-5 py-4">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">Resolução / Encaminhamento</p>
+            <p class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap border border-gray-100">{{ ocorrencia.resolucao_encaminhamento }}</p>
+        </div>
+        {% endif %}
+
+        {% if ocorrencia.resolucao_final %}
+        <div class="border-t border-green-100 bg-green-50 px-5 py-4">
+            <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-green-600">Resolução Final</p>
+            <p class="rounded-lg bg-white px-4 py-3 text-sm text-green-800 whitespace-pre-wrap border border-green-100">{{ ocorrencia.resolucao_final }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ===== CARD: ITENS AFETADOS ===== -->
+    {% if ocorrencia.itens %}
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50 px-6 py-3.5">
+            <i data-lucide="package" class="h-4 w-4 text-indigo-500"></i>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Itens Afetados</h2>
+            <span class="ml-auto rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700">{{ ocorrencia.itens | length }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-100 bg-gray-50">
+                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Código</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Descrição</th>
+                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Qtd</th>
+                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Vlr Unit.</th>
+                        <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Vlr Total</th>
+                        <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Situação</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for item in ocorrencia.itens %}
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-5 py-3 font-mono text-xs font-semibold text-gray-600">{{ item.codprod or '—' }}</td>
+                        <td class="px-5 py-3 font-medium text-gray-800">{{ item.descricao_produto or '—' }}</td>
+                        <td class="px-5 py-3 text-right text-gray-700">{{ item.qtd_afetada or '—' }}</td>
+                        <td class="px-5 py-3 text-right text-gray-600">{% if item.valor_unitario %}R$&nbsp;{{ "%.2f"|format(item.valor_unitario)|replace('.', ',') }}{% else %}—{% endif %}</td>
+                        <td class="px-5 py-3 text-right font-bold text-gray-900">{% if item.valor_total %}R$&nbsp;{{ "%.2f"|format(item.valor_total)|replace('.', ',') }}{% else %}—{% endif %}</td>
+                        <td class="px-5 py-3">
+                            {% if item.item_role == 'ENVIADO_INCORRETAMENTE' %}
+                            <span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">Enviado incorretamente</span>
+                            {% elif item.item_role == 'ITEM_CORRETO' %}
+                            <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">Item correto</span>
+                            {% else %}
+                            <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Afetado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== CARD: ANEXOS ===== -->
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50 px-6 py-3.5">
+            <i data-lucide="paperclip" class="h-4 w-4 text-purple-500"></i>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Anexos</h2>
+            {% if ocorrencia.anexos %}
+            <span class="ml-auto rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">{{ ocorrencia.anexos | length }}</span>
+            {% endif %}
+        </div>
+        <div class="divide-y divide-gray-50 px-6 py-2">
+            {% if ocorrencia.anexos %}
+            {% for anexo in ocorrencia.anexos %}
+            <div class="flex items-center justify-between gap-4 py-3">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                        <i data-lucide="file" class="h-4 w-4 text-gray-500"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-gray-800">{{ anexo.nome_arquivo }}</p>
+                        <p class="text-xs text-gray-400">
+                            {% if anexo.tamanho %}
+                                {% if anexo.tamanho > 1048576 %}{{ "%.1f"|format(anexo.tamanho / 1048576) }} MB
+                                {% elif anexo.tamanho > 1024 %}{{ "%.1f"|format(anexo.tamanho / 1024) }} KB
+                                {% else %}{{ anexo.tamanho }} bytes{% endif %}
+                            {% else %}—{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex flex-shrink-0 items-center gap-2">
+                    <a href="/ocorrencias/{{ ocorrencia.id }}/anexos/{{ anexo.id }}/download"
+                       class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
+                        <i data-lucide="download" class="h-3.5 w-3.5"></i> Baixar
+                    </a>
+                    {% if ocorrencia.status != 'FINALIZADO' and (current_user.papel == 'GERENTE' or ocorrencia.criado_por_id == current_user.id) %}
+                    <form action="/ocorrencias/{{ ocorrencia.id }}/anexos/{{ anexo.id }}/deletar" method="post"
+                          onsubmit="return confirm('Remover este anexo?')">
+                        <button class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100">
+                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Remover
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="py-6 text-center text-sm text-gray-400">Nenhum anexo adicionado.</p>
+            {% endif %}
+        </div>
+        {% if ocorrencia.status != 'FINALIZADO' %}
+        <div class="border-t border-gray-100 bg-gray-50 px-6 py-4">
+            <form action="/ocorrencias/{{ ocorrencia.id }}/anexos" method="post" enctype="multipart/form-data"
+                  class="flex items-center gap-3">
+                <input type="file" name="file" required
+                       class="flex-1 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-sm text-gray-600
+                              file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5
+                              file:text-xs file:font-semibold file:text-white hover:file:bg-blue-700" />
+                <button type="submit"
+                        class="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                    <i data-lucide="upload" class="h-4 w-4"></i> Enviar
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ===== CARD: COMENTÁRIO ===== -->
+    {% if ocorrencia.status != 'FINALIZADO' %}
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50 px-6 py-3.5">
+            <i data-lucide="message-circle" class="h-4 w-4 text-gray-500"></i>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Adicionar Comentário</h2>
+        </div>
+        <div class="px-6 py-4">
+            <form action="/ocorrencias/{{ ocorrencia.id }}/comentar" method="post" class="flex gap-3">
+                <textarea name="comentario" rows="2" maxlength="2000" required
+                          placeholder="Escreva um comentário ou atualização..."
+                          class="flex-1 resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"></textarea>
+                <button type="submit"
+                        class="inline-flex flex-shrink-0 self-end items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+                    <i data-lucide="send" class="h-4 w-4"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ===== CARD: TIMELINE ===== -->
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div class="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50 px-6 py-3.5">
+            <i data-lucide="activity" class="h-4 w-4 text-gray-500"></i>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Histórico de Atividades</h2>
+            {% if ocorrencia.eventos %}
+            <span class="ml-auto rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-bold text-gray-600">{{ ocorrencia.eventos | length }}</span>
+            {% endif %}
+        </div>
+        <div class="px-6 py-4">
+            {% if ocorrencia.eventos %}
+            <div class="space-y-0">
+                {% for evento in ocorrencia.eventos %}
+                {% set is_last = loop.last %}
+                {% include "partials/timeline_evento.html" %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="py-6 text-center text-sm text-gray-400">Nenhum evento registrado.</p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ===== MODAIS (dentro do x-data) ===== -->
+
+<!-- Modal: Marcar Pendente -->
+<div x-show="modal === 'pendente'" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div @click.outside="modal = ''" class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
+        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+                    <i data-lucide="clock" class="h-4 w-4 text-amber-600"></i>
+                </div>
+                <h3 class="font-semibold text-gray-900">Marcar como Pendente</h3>
+            </div>
+            <button @click="modal = ''" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+        <form action="/ocorrencias/{{ ocorrencia.id }}/pendente" method="post" class="p-6 space-y-4">
+            <div>
+                <label class="mb-1.5 block text-sm font-semibold text-gray-700">
+                    Motivo da Pendência <span class="text-red-500">*</span>
+                </label>
+                <textarea name="motivo" rows="3" required minlength="3" maxlength="1000"
+                          placeholder="Descreva o motivo pelo qual está pendente..."
+                          class="w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm placeholder-gray-400 transition focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-100"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-1">
+                <button type="button" @click="modal = ''"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600">
+                    <i data-lucide="clock" class="h-4 w-4"></i> Confirmar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Enviar para Aprovação -->
+<div x-show="modal === 'aprovar_envio'" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div @click.outside="modal = ''" class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
+        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                    <i data-lucide="send" class="h-4 w-4 text-green-600"></i>
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Enviar para Aprovação</h3>
+                    <p class="text-xs text-gray-500">O gerente poderá aprovar ou reprovar.</p>
+                </div>
+            </div>
+            <button @click="modal = ''" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+        <form action="/ocorrencias/{{ ocorrencia.id }}/concluir" method="post" class="p-6 space-y-4">
+            <div>
+                <label class="mb-1.5 block text-sm font-semibold text-gray-700">Comentário final <span class="font-normal text-gray-400">(opcional)</span></label>
+                <textarea name="comentario" rows="3" maxlength="2000"
+                          placeholder="Descreva a resolução ou observações para o gerente..."
+                          class="w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm placeholder-gray-400 transition focus:border-green-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-100"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-1">
+                <button type="button" @click="modal = ''"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                    <i data-lucide="send" class="h-4 w-4"></i> Enviar para Aprovação
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Aprovar (GERENTE) -->
+{% if current_user.papel == 'GERENTE' %}
+<div x-show="modal === 'aprovar'" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div @click.outside="modal = ''" class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
+        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                    <i data-lucide="check-circle" class="h-4 w-4 text-green-600"></i>
+                </div>
+                <h3 class="font-semibold text-gray-900">Aprovar e Finalizar</h3>
+            </div>
+            <button @click="modal = ''" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+        <form action="/ocorrencias/{{ ocorrencia.id }}/aprovar" method="post" class="p-6 space-y-4">
+            <div>
+                <label class="mb-1.5 block text-sm font-semibold text-gray-700">
+                    Resolução Final <span class="text-red-500">*</span>
+                </label>
+                <textarea name="resolucao_final" rows="4" required minlength="3" maxlength="2000"
+                          placeholder="Descreva a resolução final da ocorrência..."
+                          class="w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm placeholder-gray-400 transition focus:border-green-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-green-100"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-1">
+                <button type="button" @click="modal = ''"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                    <i data-lucide="check-circle" class="h-4 w-4"></i> Aprovar e Finalizar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Reprovar (GERENTE) -->
+<div x-show="modal === 'reprovar'" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div @click.outside="modal = ''" class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
+        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+                    <i data-lucide="x-circle" class="h-4 w-4 text-red-600"></i>
+                </div>
+                <h3 class="font-semibold text-gray-900">Reprovar Ocorrência</h3>
+            </div>
+            <button @click="modal = ''" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+        <form action="/ocorrencias/{{ ocorrencia.id }}/reprovar" method="post" class="p-6 space-y-4">
+            <div>
+                <label class="mb-1.5 block text-sm font-semibold text-gray-700">
+                    Motivo da Reprovação <span class="text-red-500">*</span>
+                </label>
+                <textarea name="motivo_reprovacao" rows="4" required minlength="3" maxlength="2000"
+                          placeholder="Explique o motivo da reprovação..."
+                          class="w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm placeholder-gray-400 transition focus:border-red-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-100"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-1">
+                <button type="button" @click="modal = ''"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700">
+                    <i data-lucide="x-circle" class="h-4 w-4"></i> Reprovar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+</div><!-- fim x-data -->
+
+<style>[x-cloak] { display: none !important; }</style>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base/authenticated.html" %}
+
+{% block title %}Usuários — Gestão SAC{% endblock %}
+
+{% block header_actions %}
+<a href="/usuarios/novo"
+   class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+    <i data-lucide="user-plus" class="h-4 w-4"></i>
+    Novo Usuário
+</a>
+{% endblock %}
+
+{% block page_content %}
+<div class="space-y-5">
+
+    <!-- Mensagens -->
+    {% set sucesso = request.query_params.get('sucesso', '') %}
+    {% if sucesso %}
+    <div class="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <i data-lucide="check-circle" class="h-4 w-4 flex-shrink-0"></i>
+        <span>{{ sucesso }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Tabela -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        {% if usuarios %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Nome</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">E-mail</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Papel</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Criado em</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for usuario in usuarios %}
+                    <tr class="transition hover:bg-gray-50">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 flex-shrink-0">
+                                    <span class="text-xs font-bold text-white">{{ usuario.nome[0] | upper }}</span>
+                                </div>
+                                <p class="text-sm font-medium text-gray-900">{{ usuario.nome }}</p>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ usuario.email }}</td>
+                        <td class="px-6 py-4">
+                            {% if usuario.papel == 'GERENTE' %}
+                            <span class="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">Gerente</span>
+                            {% else %}
+                            <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">Operador</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if usuario.ativo %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                                <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>Ativo
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                                <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>Inativo
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
+                            {{ usuario.created_at.strftime('%d/%m/%Y') if usuario.created_at else '—' }}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="/usuarios/{{ usuario.id }}/editar"
+                               class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-yellow-50 hover:border-yellow-200 hover:text-yellow-700">
+                                <i data-lucide="pencil" class="h-3 w-3"></i>
+                                Editar
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
+            {{ usuarios | length }} usuário(s) cadastrado(s)
+        </div>
+        {% else %}
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+            <i data-lucide="users" class="h-12 w-12 text-gray-200 mb-4"></i>
+            <p class="text-sm font-medium text-gray-400">Nenhum usuário encontrado</p>
+            <a href="/usuarios/novo" class="mt-4 text-sm font-medium text-blue-600 hover:underline">Criar usuário →</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

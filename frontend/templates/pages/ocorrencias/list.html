@@ -1,0 +1,257 @@
+{% extends "base/authenticated.html" %}
+
+{% block title %}Ocorrências — Gestão SAC{% endblock %}
+
+{% block header_actions %}
+<a href="/ocorrencias/nova"
+   class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">
+    <i data-lucide="plus" class="h-4 w-4"></i>
+    Nova Ocorrência
+</a>
+{% endblock %}
+
+{% block page_content %}
+<div class="space-y-5" x-data="{ filtrosAvancados: false }">
+
+    <!-- KPIs (apenas gerente) -->
+    {% if current_user.papel == 'GERENTE' %}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="rounded-xl border border-orange-200 bg-orange-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-orange-600">Aguardando Aprovação</p>
+            <p class="mt-1 text-2xl font-bold text-orange-700">{{ aguardando_aprovacao }}</p>
+            <a href="?status_filter=CONCLUIDO" class="mt-1 text-xs text-orange-600 hover:underline">Ver todas →</a>
+        </div>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-blue-600">Em Tratamento</p>
+            <p class="mt-1 text-2xl font-bold text-blue-700">{{ ocorrencias | selectattr('status', 'eq', 'EM_TRATAMENTO') | list | length }}</p>
+        </div>
+        <div class="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-yellow-600">Pendentes</p>
+            <p class="mt-1 text-2xl font-bold text-yellow-700">{{ ocorrencias | selectattr('status', 'eq', 'PENDENTE') | list | length }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filtros -->
+    <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <form action="/ocorrencias" method="get" class="space-y-4">
+
+            <!-- Filtros principais (sempre visíveis) -->
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="flex-1 min-w-[160px]">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Status</label>
+                    <select name="status"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Todos</option>
+                        {% for s in status_enum %}
+                        <option value="{{ s.value }}" {% if status_filter == s.value %}selected{% endif %}>
+                            {{ status_labels.get(s.value, s.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex-1 min-w-[160px]">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Tipo de Ocorrência</label>
+                    <select name="tipo_ocorrencia"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Todos</option>
+                        {% for t in tipos %}
+                        <option value="{{ t.value }}" {% if tipo_filter == t.value %}selected{% endif %}>
+                            {{ tipo_labels.get(t.value, t.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex-1 min-w-[160px]">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Atribuído a</label>
+                    <select name="atribuido_a_id"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="0" {% if atribuido_filter == '0' %}selected{% endif %}>Todos</option>
+                        {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if atribuido_filter == u.id | string %}selected{% endif %}>
+                            {{ u.nome }}{% if u.id == current_user.id %} (eu){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="flex-1 min-w-[160px]">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Nota Fiscal</label>
+                    <input type="text" name="numero_nota_fiscal" value="{{ nota_filter }}"
+                           placeholder="Nº da nota..."
+                           class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+
+                <div class="flex gap-2">
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700">
+                        <i data-lucide="search" class="h-4 w-4"></i>
+                        Filtrar
+                    </button>
+                    <a href="/ocorrencias"
+                       class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                        Limpar
+                    </a>
+                    <button type="button" @click="filtrosAvancados = !filtrosAvancados"
+                            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                        <i data-lucide="sliders-horizontal" class="h-4 w-4"></i>
+                        <span x-text="filtrosAvancados ? 'Ocultar' : 'Avançados'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros avançados (colapsáveis) -->
+            <div x-show="filtrosAvancados" x-cloak class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Causa Raiz</label>
+                    <select name="causa_raiz"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                        <option value="">Todas</option>
+                        {% for c in causas %}
+                        <option value="{{ c.value }}" {% if causa_filter == c.value %}selected{% endif %}>
+                            {{ causa_labels.get(c.value, c.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Responsável</label>
+                    <select name="responsavel_tipo"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                        <option value="">Todos</option>
+                        {% for r in responsaveis %}
+                        <option value="{{ r.value }}" {% if responsavel_filter == r.value %}selected{% endif %}>
+                            {{ responsavel_labels.get(r.value, r.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Setor Destino</label>
+                    <select name="setor_destino"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                        <option value="">Todos</option>
+                        {% for s in setores %}
+                        <option value="{{ s.value }}" {% if setor_filter == s.value %}selected{% endif %}>
+                            {{ setor_labels.get(s.value, s.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Data Início</label>
+                    <input type="date" name="data_inicio" value="{{ data_inicio_filter }}"
+                           class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Data Fim</label>
+                    <input type="date" name="data_fim" value="{{ data_fim_filter }}"
+                           class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabela -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        {% if ocorrencias %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">NF</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Tipo</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Motivo</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Responsável</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Atribuído a</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Criado em</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Idade</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    {% for oc in ocorrencias %}
+                    {% set dias = ((now() - oc.created_at).days) if oc.created_at else 0 %}
+                    <tr class="transition hover:bg-gray-50 {% if oc.status == 'CONCLUIDO' and current_user.papel == 'GERENTE' %}bg-orange-50{% endif %}">
+                        <td class="whitespace-nowrap px-4 py-3 text-sm font-semibold text-gray-900">#{{ oc.numero_nota_fiscal }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">
+                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                {% if oc.tipo_ocorrencia in ['DEVOLUCAO_TOTAL', 'DEVOLUCAO_PARCIAL'] %}bg-red-100 text-red-700
+                                {% elif oc.tipo_ocorrencia == 'REENVIO' %}bg-yellow-100 text-yellow-700
+                                {% elif oc.tipo_ocorrencia == 'REPOSICAO' %}bg-blue-100 text-blue-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ tipo_labels.get(oc.tipo_ocorrencia, oc.tipo_ocorrencia) if oc.tipo_ocorrencia else '—' }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ motivo_labels.get(oc.motivo, oc.motivo) if oc.motivo else '—' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ responsavel_labels.get(oc.responsavel_tipo, oc.responsavel_tipo) if oc.responsavel_tipo else '—' }}</td>
+                        <td class="px-4 py-3">
+                            {% set status = oc.status %}
+                            {% include "partials/badge_status.html" %}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ oc.atribuido_a_nome or '—' }}</td>
+                        <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                            {{ oc.created_at.strftime('%d/%m/%Y') if oc.created_at else '—' }}
+                        </td>
+                        <td class="whitespace-nowrap px-4 py-3 text-sm">
+                            {% if oc.status != 'FINALIZADO' %}
+                            <span class="{% if dias > 5 %}text-red-600 font-medium{% else %}text-gray-500{% endif %}">
+                                {{ dias }}d
+                            </span>
+                            {% else %}
+                            <span class="text-gray-300">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <a href="/ocorrencias/{{ oc.id }}"
+                               class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700">
+                                <i data-lucide="eye" class="h-3 w-3"></i>
+                                Ver
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="border-t border-gray-100 px-6 py-3 text-xs text-gray-400">
+            {{ ocorrencias | length }} ocorrência(s) encontrada(s)
+        </div>
+        {% else %}
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+            <i data-lucide="inbox" class="h-12 w-12 text-gray-200 mb-4"></i>
+            <p class="text-sm font-medium text-gray-400">Nenhuma ocorrência encontrada</p>
+            <p class="text-xs text-gray-300 mt-1">Tente ajustar os filtros ou crie uma nova ocorrência</p>
+            <a href="/ocorrencias/nova" class="mt-4 text-sm font-medium text-blue-600 hover:underline">Nova Ocorrência →</a>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<style>[x-cloak] { display: none !important; }</style>
+
+<script>
+    // Quando o select de atribuição estiver no valor padrão (usuário logado),
+    // não inclui o parâmetro na URL — assim o servidor aplica o mesmo default
+    // e a URL pode ser bookmarkada corretamente para outros valores.
+    (function () {
+        const form = document.querySelector('form[action="/ocorrencias"]');
+        if (!form) return;
+        form.addEventListener('submit', function () {
+            const sel = form.querySelector('select[name="atribuido_a_id"]');
+            if (sel && sel.value === '{{ current_user.id }}') {
+                sel.removeAttribute('name');
+            }
+        });
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,352 @@
+{% extends "base/authenticated.html" %}
+
+{% block title %}Nova Ocorrência — Gestão SAC{% endblock %}
+
+{% block header_actions %}
+<a href="/ocorrencias"
+   class="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-gray-700">
+    <i data-lucide="arrow-left" class="h-4 w-4"></i> Voltar
+</a>
+{% endblock %}
+
+{% block page_content %}
+<style>[x-cloak] { display: none !important; }</style>
+
+<div id="ocorrencia-form-root" class="mx-auto max-w-3xl space-y-5"
+     x-data="{
+         produtos: [],
+         selecionadosMap: {},
+         motivo: '',
+         causa: '',
+         notaOk: false,
+         arquivosNomes: [],
+
+         get itensJson() {
+             return JSON.stringify(Object.values(this.selecionadosMap));
+         },
+
+         onFileChange(event) {
+             this.arquivosNomes = Array.from(event.target.files).map(f => f.name);
+         },
+
+         enviarAprovacao() {
+             const tipo = document.querySelector('select[name=\"tipo_ocorrencia\"]')?.value;
+             const responsavel = document.querySelector('select[name=\"responsavel_tipo\"]')?.value;
+             const faltando = [];
+             if (!this.notaOk) faltando.push('Nota Fiscal');
+             if (!tipo) faltando.push('Tipo de Ocorrência');
+             if (!this.motivo) faltando.push('Motivo');
+             if (!this.causa) faltando.push('Causa');
+             if (!responsavel) faltando.push('Responsável');
+             if (faltando.length) {
+                 alert('Preencha os campos obrigatórios:\n• ' + faltando.join('\n• '));
+                 return;
+             }
+             document.getElementById('acao-input').value = 'concluir';
+             document.getElementById('itens-json-input').value = JSON.stringify(Object.values(this.selecionadosMap));
+             document.getElementById('form-ocorrencia').submit();
+         }
+     }"
+>
+
+    {% if erro %}
+    <div class="rounded-lg border border-red-200 bg-red-50 p-4 flex items-center gap-2">
+        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0 text-red-500"></i>
+        <p class="text-sm text-red-700">{{ erro }}</p>
+    </div>
+    {% endif %}
+
+    <form id="form-ocorrencia" method="POST" action="/ocorrencias"
+          enctype="multipart/form-data"
+          @submit="document.getElementById('itens-json-input').value = JSON.stringify(Object.values(selecionadosMap))"
+          class="space-y-5">
+        <input type="hidden" name="itens_json" id="itens-json-input" :value="itensJson">
+        <input type="hidden" name="acao" id="acao-input" value="salvar">
+
+        <!-- NF Search -->
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                Nota Fiscal <span class="text-red-500">*</span>
+            </label>
+            <div class="flex gap-3">
+                <input type="text" id="nf-input"
+                       placeholder="Número da nota fiscal..."
+                       hx-get="/ocorrencias/buscar-nota"
+                       hx-trigger="keydown[key=='Enter'] from:this"
+                       hx-vals="js:{numero_nota_fiscal: document.getElementById('nf-input').value}"
+                       hx-target="#nota-info"
+                       hx-indicator="#nf-spinner"
+                       class="flex-1 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                <button type="button"
+                        hx-get="/ocorrencias/buscar-nota"
+                        hx-vals="js:{numero_nota_fiscal: document.getElementById('nf-input').value}"
+                        hx-target="#nota-info"
+                        hx-indicator="#nf-spinner"
+                        class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                    <i data-lucide="search" class="h-4 w-4"></i>
+                    Buscar
+                </button>
+            </div>
+            <span id="nf-spinner" class="htmx-indicator mt-2 inline-block text-xs text-gray-400">Buscando...</span>
+            <!-- partial nota_info.html renderizado aqui -->
+            <div id="nota-info" class="mt-3"></div>
+        </div>
+
+        <!-- Produtos afetados — aparece após nota encontrada -->
+        <div class="rounded-xl border border-blue-200 bg-white shadow-sm overflow-hidden"
+             x-show="produtos.length > 0" x-cloak>
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-700">Produtos afetados</h3>
+                <div class="flex gap-3">
+                    <!-- Selecionar todos: inline expression, sem chamar método com this -->
+                    <button type="button"
+                            x-show="Object.keys(selecionadosMap).length < produtos.length"
+                            @click="selecionadosMap = Object.fromEntries(produtos.map(p => [p.codprod, {codprod: String(p.codprod), descricao_produto: p.descricao||'', qtd_afetada: p.qt, valor_unitario: p.pvenda, valor_total: p.qt*p.pvenda, item_role:'AFETADO'}]))"
+                            class="text-xs font-medium text-blue-600 hover:underline">
+                        Selecionar todos
+                    </button>
+                    <button type="button"
+                            x-show="Object.keys(selecionadosMap).length === produtos.length && produtos.length > 0"
+                            @click="selecionadosMap = {}"
+                            class="text-xs font-medium text-red-500 hover:underline">
+                        Remover seleção
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-100">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="w-10 px-3 py-2"></th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Código</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Descrição</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Qtd NF</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Qtd Afetada</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        <template x-for="p in produtos" :key="p.codprod">
+                            <!-- Toda lógica inline: variáveis acessadas via with(scope) são sempre reativas -->
+                            <tr class="transition hover:bg-gray-50"
+                                :class="p.codprod in selecionadosMap ? 'bg-blue-50' : ''">
+                                <td class="px-3 py-2 text-center">
+                                    <input type="checkbox"
+                                           :checked="p.codprod in selecionadosMap"
+                                           @change="selecionadosMap = $event.target.checked
+                                               ? Object.assign({}, selecionadosMap, {[p.codprod]: {codprod: String(p.codprod), descricao_produto: p.descricao||'', qtd_afetada: p.qt, valor_unitario: p.pvenda, valor_total: p.qt*p.pvenda, item_role:'AFETADO'}})
+                                               : Object.fromEntries(Object.entries(selecionadosMap).filter(([k]) => k != p.codprod))"
+                                           class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-600" x-text="p.codprod"></td>
+                                <td class="px-3 py-2 text-sm text-gray-800" x-text="p.descricao"></td>
+                                <td class="px-3 py-2 text-sm text-gray-500 text-right" x-text="p.qt"></td>
+                                <td class="px-3 py-2 text-right">
+                                    <input type="number" min="0" step="0.01"
+                                           x-show="p.codprod in selecionadosMap"
+                                           :value="selecionadosMap[p.codprod] ? selecionadosMap[p.codprod].qtd_afetada : ''"
+                                           @input="selecionadosMap = Object.assign({}, selecionadosMap, {[p.codprod]: Object.assign({}, selecionadosMap[p.codprod], {qtd_afetada: parseFloat($event.target.value)||0, valor_total: (parseFloat($event.target.value)||0) * (selecionadosMap[p.codprod] ? selecionadosMap[p.codprod].valor_unitario : 0)})})"
+                                           class="w-24 rounded border border-gray-300 px-2 py-1 text-sm text-right focus:border-blue-400 focus:outline-none" />
+                                    <span x-show="!(p.codprod in selecionadosMap)" class="text-xs text-gray-300">—</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-5 py-2 border-t border-gray-100 text-xs text-gray-400">
+                <span x-text="Object.keys(selecionadosMap).length"></span>
+                de <span x-text="produtos.length"></span> produto(s) selecionado(s)
+            </div>
+        </div>
+
+        <!-- Classificação -->
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+            <h3 class="text-sm font-semibold text-gray-700">Classificação</h3>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                <!-- Tipo de Ocorrência → tipo_ocorrencia (DB: impacto) -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Tipo de Ocorrência
+                    </label>
+                    <select name="tipo_ocorrencia"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        {% for t in tipos %}
+                        <option value="{{ t.value }}">{{ tipo_labels.get(t.value, t.value) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Motivo → motivo (DB: tipo_ocorrencia) -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Motivo
+                    </label>
+                    <select name="motivo" x-model="motivo"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        <option value="AVARIA">Avaria</option>
+                        <option value="INVERSAO_MERCADORIA">Inversão de mercadoria</option>
+                        <option value="FALTA_MERCADORIA">Falta de mercadoria</option>
+                        <option value="SOBRA_MERCADORIA">Sobra de mercadoria</option>
+                        <option value="DEVOLUCAO_SOLICITADA">Devolução solicitada</option>
+                        <option value="PEDIDO_TROCA">Pedido de troca</option>
+                        <option value="EXTRAVIO">Extravio</option>
+                        <option value="ATRASO_ENTREGA">Atraso na entrega</option>
+                        <option value="PEDIDO_DUPLICADO">Pedido duplicado</option>
+                        <option value="PEDIDO_DESACORDO">Pedido em desacordo</option>
+                        <option value="OUTRO">Outros</option>
+                    </select>
+                    <input x-show="motivo === 'OUTRO'" x-cloak
+                           type="text" name="motivo_outro"
+
+                           placeholder="Descreva o motivo..."
+                           class="mt-2 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+
+                <!-- Causa → causa_raiz -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Causa
+                    </label>
+                    <select name="causa_raiz" x-model="causa"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        <option value="ERRO_EXPEDICAO">Erro na expedição</option>
+                        <option value="ERRO_VENDEDOR">Erro do vendedor</option>
+                        <option value="ERRO_TRANSPORTADORA">Erro da transportadora</option>
+                        <option value="ERRO_MOTORISTA">Erro do motorista</option>
+                        <option value="DEFEITO_FABRICA">Defeito de fábrica</option>
+                        <option value="DESISTENCIA_CLIENTE">Desistência do cliente</option>
+                        <option value="ERRO_CLIENTE">Erro do cliente</option>
+                        <option value="FORA_ROTA">Fora de rota</option>
+                        <option value="OUTRO">Outros</option>
+                    </select>
+                    <input x-show="causa === 'OUTRO'" x-cloak
+                           type="text" name="causa_outro"
+                           placeholder="Descreva a causa..."
+                           class="mt-2 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+
+                <!-- Responsável -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Responsável
+                    </label>
+                    <select name="responsavel_tipo"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        <option value="CEDEP">Expedição</option>
+                        <option value="VENDEDOR">Vendedor</option>
+                        <option value="TRANSPORTADORA">Transportadora</option>
+                        <option value="MOTORISTA">Motorista</option>
+                        <option value="CLIENTE">Cliente</option>
+                        <option value="FABRICANTE">Fabricante</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <!-- Observações -->
+            <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                    Observações
+                </label>
+                <textarea name="descricao" rows="3"
+                          placeholder="Informações adicionais sobre a ocorrência..."
+                          class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none"></textarea>
+            </div>
+        </div>
+
+        <!-- Anexos -->
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
+                Anexos
+            </label>
+            <label class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition">
+                <i data-lucide="paperclip" class="h-6 w-6 text-gray-400"></i>
+                <span class="text-sm text-gray-500">
+                    <span class="font-medium text-blue-600">Clique para selecionar</span>
+                    ou arraste os arquivos aqui
+                </span>
+                <span class="text-xs text-gray-400">PDF, imagens ou documentos</span>
+                <input type="file" name="arquivos" multiple class="sr-only"
+                       @change="onFileChange($event)" />
+            </label>
+            <ul x-show="arquivosNomes.length > 0" class="mt-3 space-y-1">
+                <template x-for="nome in arquivosNomes" :key="nome">
+                    <li class="flex items-center gap-2 text-sm text-gray-600">
+                        <i data-lucide="file" class="h-4 w-4 text-gray-400 flex-shrink-0"></i>
+                        <span x-text="nome"></span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+
+        <!-- Atribuição -->
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                Atribuído a
+            </label>
+            <select name="atribuido_a_id"
+                    class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:max-w-xs">
+                {% for u in usuarios %}
+                <option value="{{ u.id }}" {% if u.id == current_user.id %}selected{% endif %}>
+                    {{ u.nome }}{% if u.id == current_user.id %} (eu){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Ações -->
+        <div class="flex items-center justify-end gap-3 pb-4">
+            <a href="/ocorrencias"
+               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <i data-lucide="save" class="h-4 w-4"></i>
+                Salvar
+            </button>
+            <button type="button" @click="enviarAprovacao()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
+                <i data-lucide="send" class="h-4 w-4"></i>
+                Enviar para Aprovação
+            </button>
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+function onNotaSwap(evt) {
+    // Só processa quando o swap foi no #nota-info
+    if (!evt.detail || !evt.detail.target || evt.detail.target.id !== 'nota-info') return;
+    var json = document.getElementById('nota-produtos-json');
+    var root = document.getElementById('ocorrencia-form-root');
+    if (!root || !window.Alpine) return;
+    var d = Alpine.$data(root);
+    if (!d) return;
+    if (json) {
+        try {
+            d.produtos = JSON.parse(json.textContent || '[]');
+        } catch (e) {
+            d.produtos = [];
+        }
+        d.notaOk = true;
+        d.selecionadosMap = {};
+    } else {
+        d.produtos = [];
+        d.notaOk = false;
+        d.selecionadosMap = {};
+    }
+}
+document.addEventListener('htmx:afterSwap', onNotaSwap);
+</script>
+{% endblock %}

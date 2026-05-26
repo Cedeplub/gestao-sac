@@ -1,0 +1,84 @@
+{% extends "base/base.html" %}
+
+{% block title %}Login — Gestão SAC{% endblock %}
+
+{% block content %}
+<div class="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
+    <div class="w-full max-w-md space-y-8">
+
+        <!-- Logo / Título -->
+        <div class="text-center">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-lg">
+                <i data-lucide="clipboard-list" class="h-7 w-7 text-white"></i>
+            </div>
+            <h2 class="mt-4 text-2xl font-bold tracking-tight text-gray-900">Gestão SAC</h2>
+            <p class="mt-1 text-sm text-gray-500">Sistema de Gestão de Atendimento ao Cliente</p>
+        </div>
+
+        <!-- Card de Login -->
+        <div class="rounded-2xl bg-white px-8 py-10 shadow-md ring-1 ring-gray-100">
+            <h3 class="mb-6 text-center text-lg font-semibold text-gray-800">Acesse sua conta</h3>
+
+            {% if erro %}
+            <div class="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0"></i>
+                <span>{{ erro }}</span>
+            </div>
+            {% endif %}
+
+            <form action="/login" method="post" class="space-y-5">
+
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1.5">E-mail</label>
+                    <div class="relative">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <i data-lucide="mail" class="h-4 w-4 text-gray-400"></i>
+                        </div>
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            required
+                            autocomplete="email"
+                            placeholder="seu@email.com"
+                            class="block w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="senha" class="block text-sm font-medium text-gray-700 mb-1.5">Senha</label>
+                    <div class="relative" x-data="{ show: false }">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <i data-lucide="lock" class="h-4 w-4 text-gray-400"></i>
+                        </div>
+                        <input
+                            id="senha"
+                            name="senha"
+                            :type="show ? 'text' : 'password'"
+                            required
+                            autocomplete="current-password"
+                            placeholder="••••••••"
+                            class="block w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 pl-10 pr-10 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                        <button
+                            type="button"
+                            @click="show = !show"
+                            class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600">
+                            <i :data-lucide="show ? 'eye-off' : 'eye'" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Entrar
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-gray-400">CEDEP &copy; {{ 2026 }} — Gestão SAC v1.0</p>
+    </div>
+</div>
+{% endblock %}

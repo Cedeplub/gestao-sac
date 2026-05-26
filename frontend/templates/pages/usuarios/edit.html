@@ -1,0 +1,113 @@
+{% extends "base/authenticated.html" %}
+
+{% block title %}Editar Usuário — Gestão SAC{% endblock %}
+
+{% block header_actions %}
+<a href="/usuarios"
+   class="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-gray-700">
+    <i data-lucide="arrow-left" class="h-4 w-4"></i> Voltar
+</a>
+{% endblock %}
+
+{% block page_content %}
+<div class="mx-auto max-w-xl space-y-6">
+
+    {% if erro %}
+    <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0"></i>
+        <span>{{ erro }}</span>
+    </div>
+    {% endif %}
+
+    <form action="/usuarios/{{ usuario.id }}/atualizar" method="post" class="space-y-5">
+        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
+
+            <div>
+                <label for="nome" class="block text-sm font-medium text-gray-700 mb-1.5">
+                    Nome Completo <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="nome"
+                    name="nome"
+                    type="text"
+                    required
+                    value="{{ usuario.nome }}"
+                    class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+            </div>
+
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1.5">
+                    E-mail <span class="text-red-500">*</span>
+                </label>
+                <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    value="{{ usuario.email }}"
+                    class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+            </div>
+
+            <div>
+                <label for="senha" class="block text-sm font-medium text-gray-700 mb-1.5">
+                    Nova Senha <span class="text-gray-400 font-normal">(deixe em branco para manter)</span>
+                </label>
+                <input
+                    id="senha"
+                    name="senha"
+                    type="password"
+                    placeholder="••••••••"
+                    class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+            </div>
+
+            <div>
+                <label for="papel" class="block text-sm font-medium text-gray-700 mb-1.5">
+                    Papel <span class="text-red-500">*</span>
+                </label>
+                <select
+                    id="papel"
+                    name="papel"
+                    required
+                    class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    {% for p in papeis %}
+                    <option value="{{ p.value }}" {% if usuario.papel == p.value %}selected{% endif %}>
+                        {% if p.value == 'GERENTE' %}Gerente{% else %}Operador{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3">
+                <input
+                    id="ativo"
+                    name="ativo"
+                    type="checkbox"
+                    {% if usuario.ativo %}checked{% endif %}
+                    class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label for="ativo" class="text-sm font-medium text-gray-700 cursor-pointer">
+                    Usuário ativo
+                </label>
+                <span class="ml-auto text-xs text-gray-400">Desativar impede o login</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3">
+            <a href="/usuarios"
+               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                Cancelar
+            </a>
+            <button
+                type="submit"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <i data-lucide="save" class="h-4 w-4"></i>
+                Salvar Alterações
+            </button>
+        </div>
+    </form>
+
+</div>
+{% endblock %}

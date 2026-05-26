@@ -1,0 +1,168 @@
+{% extends "base/authenticated.html" %}
+
+{% block title %}Editar Ocorrência #{{ ocorrencia.id }} — Gestão SAC{% endblock %}
+
+{% block header_actions %}
+<a href="/ocorrencias/{{ ocorrencia.id }}"
+   class="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-gray-700">
+    <i data-lucide="arrow-left" class="h-4 w-4"></i> Voltar
+</a>
+{% endblock %}
+
+{% block page_content %}
+<div class="mx-auto max-w-3xl space-y-6"
+     x-data="{
+        responsavel_tipo: '{{ ocorrencia.responsavel_tipo or '' }}',
+        detalhes: {{ ocorrencia.detalhes_especificos | tojson if ocorrencia.detalhes_especificos else '{}' }},
+        get detalhesJson() { return JSON.stringify(this.detalhes); }
+     }">
+
+    {% if erro %}
+    <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0"></i>
+        <span>{{ erro }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Card readonly: Dados da NF -->
+    <div class="rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
+        <div class="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
+            <i data-lucide="file-text" class="h-4 w-4 text-gray-400"></i>
+            <h3 class="text-base font-semibold text-gray-600">Nota Fiscal</h3>
+            <span class="ml-auto rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">Somente leitura</span>
+        </div>
+        <div class="grid grid-cols-2 gap-x-6 gap-y-3 p-6 sm:grid-cols-4 text-sm">
+            <div><p class="text-xs font-semibold uppercase text-gray-400">NF</p><p class="mt-0.5 font-semibold text-gray-700">#{{ ocorrencia.numero_nota_fiscal }}</p></div>
+            <div><p class="text-xs font-semibold uppercase text-gray-400">Cliente</p><p class="mt-0.5 text-gray-600">{{ ocorrencia.cliente or '—' }}</p></div>
+            <div><p class="text-xs font-semibold uppercase text-gray-400">Vendedor</p><p class="mt-0.5 text-gray-600">{{ ocorrencia.vendedor or '—' }}</p></div>
+            <div><p class="text-xs font-semibold uppercase text-gray-400">Valor Total</p>
+                <p class="mt-0.5 text-gray-600">{% if ocorrencia.valor_total %}R$ {{ "%.2f"|format(ocorrencia.valor_total)|replace('.', ',') }}{% else %}—{% endif %}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Form de Edição -->
+    <form action="/ocorrencias/{{ ocorrencia.id }}/atualizar" method="post" class="space-y-6">
+        <input type="hidden" name="detalhes_especificos" :value="detalhesJson" />
+
+        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
+            <h3 class="text-base font-semibold text-gray-900">Classificação</h3>
+
+            <!-- Tipo de Ocorrência → tipo_ocorrencia (DB: impacto) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Tipo de Ocorrência <span class="text-red-500">*</span></label>
+                <select name="tipo_ocorrencia" required
+                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    {% for t in tipos %}
+                    <option value="{{ t.value }}" {% if ocorrencia.tipo_ocorrencia == t.value %}selected{% endif %}>
+                        {{ tipo_labels.get(t.value, t.value) }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Motivo → motivo (DB: tipo_ocorrencia) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Motivo</label>
+                <select name="motivo"
+                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <option value="">Selecione...</option>
+                    {% for m in motivos %}
+                    <option value="{{ m.value }}" {% if ocorrencia.motivo == m.value %}selected{% endif %}>
+                        {{ motivo_labels.get(m.value, m.value) }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Causa raiz -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Causa Raiz</label>
+                <select name="causa_raiz"
+                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <option value="">Selecione...</option>
+                    {% for c in causas %}
+                    <option value="{{ c.value }}" {% if ocorrencia.causa_raiz == c.value %}selected{% endif %}>
+                        {{ causa_labels.get(c.value, c.value) }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Responsável -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Responsável</label>
+                <select name="responsavel_tipo" x-model="responsavel_tipo"
+                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <option value="">Selecione...</option>
+                    {% for r in responsaveis %}
+                    <option value="{{ r.value }}" {% if ocorrencia.responsavel_tipo == r.value %}selected{% endif %}>
+                        {{ responsavel_labels.get(r.value, r.value) }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Nome do responsável -->
+            <div x-show="responsavel_tipo === 'TRANSPORTADORA' || responsavel_tipo === 'VENDEDOR' || responsavel_tipo === 'MOTORISTA'">
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Nome / Identificação</label>
+                <input type="text" name="responsavel_descricao" maxlength="200"
+                       value="{{ ocorrencia.responsavel_descricao or '' }}"
+                       class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200" />
+            </div>
+
+            <!-- Setor destino -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Setor Responsável</label>
+                <select name="setor_destino"
+                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    <option value="">Selecione...</option>
+                    {% for s in setores %}
+                    <option value="{{ s.value }}" {% if ocorrencia.setor_destino == s.value %}selected{% endif %}>
+                        {{ setor_labels.get(s.value, s.value) }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Descrição -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Descrição</label>
+                <textarea name="descricao" rows="4" maxlength="2000"
+                          class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none">{{ ocorrencia.descricao or '' }}</textarea>
+            </div>
+
+            <!-- Atribuição -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1.5">Atribuído a</label>
+                {% if current_user.papel == 'GERENTE' %}
+                <select name="atribuido_a_id"
+                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                    {% for u in usuarios %}
+                    <option value="{{ u.id }}" {% if ocorrencia.atribuido_a_id == u.id %}selected{% endif %}>
+                        {{ u.nome }}{% if u.papel == 'GERENTE' %} (Gerente){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <input type="hidden" name="atribuido_a_id" value="{{ current_user.id }}" />
+                <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">{{ current_user.nome }} (você)</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Botões -->
+        <div class="flex items-center justify-end gap-3">
+            <a href="/ocorrencias/{{ ocorrencia.id }}"
+               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                Cancelar
+            </a>
+            <button type="submit"
+                    class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <i data-lucide="save" class="h-4 w-4"></i>
+                Salvar Alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

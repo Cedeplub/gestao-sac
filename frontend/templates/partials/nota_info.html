@@ -1,0 +1,71 @@
+{% if nota %}
+<script id="nota-produtos-json" type="application/json">{{ nota.produtos | tojson }}</script>
+
+<div class="rounded-lg border border-green-200 bg-green-50 p-4">
+    <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="check-circle" class="h-5 w-5 text-green-600"></i>
+        <span class="text-sm font-semibold text-green-700">Nota encontrada — NF #{{ nota.numero_nota }}</span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Nota Fiscal</p>
+            <p class="text-sm font-bold text-green-800">#{{ nota.numero_nota }}</p>
+        </div>
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Data Faturamento</p>
+            <p class="text-sm text-green-800">
+                {% if nota.data_faturamento %}{{ nota.data_faturamento.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+            </p>
+        </div>
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Valor Total</p>
+            <p class="text-sm font-semibold text-green-800">
+                {% if nota.valor_total %}R$ {{ "%.2f"|format(nota.valor_total)|replace('.', ',') }}{% else %}—{% endif %}
+            </p>
+        </div>
+        <div class="col-span-2 sm:col-span-1">
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Cliente</p>
+            <p class="text-sm text-green-800">{{ nota.cliente or '—' }}</p>
+        </div>
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Vendedor</p>
+            <p class="text-sm text-green-800">{{ nota.vendedor or '—' }}</p>
+        </div>
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Motorista</p>
+            <p class="text-sm text-green-800">{{ nota.motorista or '—' }}</p>
+        </div>
+        {% if nota.transportadora %}
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Transportadora</p>
+            <p class="text-sm text-green-800">{{ nota.transportadora }}</p>
+        </div>
+        {% endif %}
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">ID Carregamento</p>
+            <p class="text-sm text-green-800">{{ nota.id_carregamento or '—' }}</p>
+        </div>
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wider text-green-600">Saída Carregamento</p>
+            <p class="text-sm text-green-800">
+                {% if nota.data_saida_carregamento %}{{ nota.data_saida_carregamento.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Campo oculto com número da nota para o form principal -->
+<input type="hidden" name="numero_nota_fiscal" value="{{ nota.numero_nota }}" />
+
+{% else %}
+<div class="rounded-lg border border-red-200 bg-red-50 p-4">
+    <div class="flex items-center gap-2">
+        <i data-lucide="x-circle" class="h-5 w-5 text-red-500"></i>
+        <span class="text-sm font-semibold text-red-700">
+            {% if erro %}{{ erro }}{% else %}Nota fiscal não encontrada.{% endif %}
+        </span>
+    </div>
+    <p class="mt-1 text-xs text-red-500">Verifique o número informado e tente novamente.</p>
+</div>
+{% endif %}

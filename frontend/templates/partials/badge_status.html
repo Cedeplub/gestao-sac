@@ -1,0 +1,26 @@
+{% set s = status %}
+{% if s == 'EM_TRATAMENTO' %}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+    <span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span>Em tratamento
+</span>
+{% elif s == 'PENDENTE' %}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-700">
+    <span class="h-1.5 w-1.5 rounded-full bg-yellow-500"></span>Pendente
+</span>
+{% elif s == 'ENCAMINHADO' %}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+    <span class="h-1.5 w-1.5 rounded-full bg-purple-500"></span>Encaminhado
+</span>
+{% elif s == 'CONCLUIDO' %}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700">
+    <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>Aguardando aprovação
+</span>
+{% elif s == 'FINALIZADO' %}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+    <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>Finalizado
+</span>
+{% else %}
+<span class="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-600">
+    <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>{{ s }}
+</span>
+{% endif %}
