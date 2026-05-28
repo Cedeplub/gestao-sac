@@ -19,6 +19,7 @@ from app.schemas.ocorrencia import (
     OcorrenciaCreate,
     OcorrenciaItemCreate,
     OcorrenciaUpdate,
+    ReabrirRequest,
     ReprovarRequest,
 )
 from app.services.carregamento_service import carregamento_service
@@ -35,7 +36,7 @@ TRANSICOES_PERMITIDAS = {
     "PENDENTE":      {"EM_TRATAMENTO", "ENCAMINHADO", "CONCLUIDO"},
     "ENCAMINHADO":   {"EM_TRATAMENTO", "PENDENTE", "CONCLUIDO"},
     "CONCLUIDO":     {"FINALIZADO", "EM_TRATAMENTO"},
-    "FINALIZADO":    set(),
+    "FINALIZADO":    {"EM_TRATAMENTO"},
 }
 
 
@@ -388,6 +389,19 @@ class OcorrenciaService:
         o.status = "EM_TRATAMENTO"
         evento_service.registrar_evento(
             db, o.id, "REPROVADA", anterior, "EM_TRATAMENTO", payload.motivo_reprovacao, current_user.id
+        )
+        db.commit()
+        return _to_response(_load(db, o.id))
+
+    @staticmethod
+    def reabrir(db: Session, ocorrencia_id: int, payload: ReabrirRequest, current_user) -> dict:
+        """FINALIZADO -> EM_TRATAMENTO. Apenas GERENTE. Motivo obrigatório."""
+        require_gerente(current_user)
+        o = _load(db, ocorrencia_id)
+        _validar_transicao(o.status, "EM_TRATAMENTO")
+        o.status = "EM_TRATAMENTO"
+        evento_service.registrar_evento(
+            db, o.id, "REABERTA", "FINALIZADO", "EM_TRATAMENTO", payload.motivo, current_user.id
         )
         db.commit()
         return _to_response(_load(db, o.id))

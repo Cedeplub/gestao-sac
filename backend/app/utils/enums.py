@@ -83,13 +83,13 @@ class TipoEventoEnum(str, Enum):
     APROVADA = "APROVADA"
     REPROVADA = "REPROVADA"
     ATRIBUICAO_ALTERADA = "ATRIBUICAO_ALTERADA"
+    REABERTA = "REABERTA"
 
 
 # Labels em PT-BR para templates — evita duplicação.
 STATUS_LABELS = {
     "EM_TRATAMENTO": "Em tratamento",
     "PENDENTE": "Pendente",
-    "ENCAMINHADO": "Encaminhado",
     "CONCLUIDO": "Aguardando aprovação",
     "FINALIZADO": "Finalizado",
 }

@@ -165,3 +165,7 @@ class ReprovarRequest(BaseModel):
 
 class AdicionarComentarioRequest(BaseModel):
     comentario: str = Field(..., min_length=1, max_length=2000)
+
+
+class ReabrirRequest(BaseModel):
+    motivo: str = Field(..., min_length=3, max_length=2000)

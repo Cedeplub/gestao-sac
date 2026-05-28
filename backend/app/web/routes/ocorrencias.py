@@ -19,6 +19,7 @@ from app.schemas.ocorrencia import (
     OcorrenciaCreate,
     OcorrenciaItemCreate,
     OcorrenciaUpdate,
+    ReabrirRequest,
     ReprovarRequest,
 )
 from app.utils.enums import ItemRoleEnum
@@ -502,6 +503,21 @@ async def web_reprovar(
             url=f"/ocorrencias/{ocorrencia_id}?sucesso=Ocorrência+reprovada+e+reaberta",
             status_code=302,
         )
+    except Exception as e:
+        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
+
+
+@router.post("/{ocorrencia_id}/reabrir", include_in_schema=False)
+async def web_reabrir(
+    ocorrencia_id: int,
+    current_user: Usuario = Depends(get_current_web_user),
+    db: Session = Depends(get_write_db),
+    motivo: str = Form(...),
+):
+    try:
+        ocorrencia_service.reabrir(db, ocorrencia_id, ReabrirRequest(motivo=motivo), current_user)
+        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Ocorrência+reaberta", status_code=302)
     except Exception as e:
         erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
