@@ -33,7 +33,6 @@ _QUERY = text("""
               SELECT numped
               FROM CEDEP.pcpedc
               WHERE numnota = :numnota
-                AND dtfat >= DATE '2026-01-01'
               ORDER BY dtfat DESC, numped DESC
           )
           WHERE ROWNUM = 1
