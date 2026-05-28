@@ -86,6 +86,12 @@
                     Finalizado por {{ ocorrencia.aprovado_por_nome or '—' }}
                     {% if ocorrencia.aprovado_em %}· {{ ocorrencia.aprovado_em.strftime('%d/%m/%Y') }}{% endif %}
                 </span>
+                {% if current_user.papel == 'GERENTE' %}
+                <button @click="modal = 'reabrir'"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 text-sm font-medium text-amber-700 shadow-sm transition hover:bg-amber-100">
+                    <i data-lucide="rotate-ccw" class="h-4 w-4"></i> Reabrir
+                </button>
+                {% endif %}
             {% endif %}
         </div>
     </div>
@@ -511,6 +517,46 @@
                 <button type="submit"
                         class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700">
                     <i data-lucide="x-circle" class="h-4 w-4"></i> Reprovar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal: Reabrir (GERENTE) -->
+{% if current_user.papel == 'GERENTE' %}
+<div x-show="modal === 'reabrir'" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div @click.outside="modal = ''" class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
+        <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+                    <i data-lucide="rotate-ccw" class="h-4 w-4 text-amber-600"></i>
+                </div>
+                <h3 class="font-semibold text-gray-900">Reabrir Ocorrência</h3>
+            </div>
+            <button @click="modal = ''" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+        <form action="/ocorrencias/{{ ocorrencia.id }}/reabrir" method="post" class="p-6 space-y-4">
+            <div>
+                <label class="mb-1.5 block text-sm font-semibold text-gray-700">
+                    Motivo da Reabertura <span class="text-red-500">*</span>
+                </label>
+                <textarea name="motivo" rows="4" required minlength="3" maxlength="2000"
+                          placeholder="Informe o motivo pelo qual está reabrindo esta ocorrência..."
+                          class="w-full resize-none rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm placeholder-gray-400 transition focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-100"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-1">
+                <button type="button" @click="modal = ''"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600">
+                    <i data-lucide="rotate-ccw" class="h-4 w-4"></i> Reabrir
                 </button>
             </div>
         </form>
