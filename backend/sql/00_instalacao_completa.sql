@@ -6,6 +6,10 @@
 --   2. Seção "PASSO 2" em diante como gestao_sac (cria tabelas e dados)
 --
 -- Banco: Oracle 19c+ em 192.168.0.98:1521/WINT
+--
+-- Este arquivo é um snapshot da realidade atual do schema. As migrations
+-- numeradas 10+ representam a evolução histórica e já estão refletidas
+-- aqui — instalações novas usam só este arquivo.
 -- ============================================================
 
 
@@ -79,13 +83,10 @@ CREATE TABLE ocorrencias (
     tipo_ocorrencia             VARCHAR2(50),
     causa_raiz                  VARCHAR2(50),
     responsavel_tipo            VARCHAR2(50),
-    responsavel_descricao       VARCHAR2(200),
-    setor_destino               VARCHAR2(50),
 
     -- Textos descritivos
-    descricao                   VARCHAR2(2000),
+    observacoes                 VARCHAR2(2000),
     motivo_pendencia            VARCHAR2(1000),
-    resolucao_encaminhamento    VARCHAR2(2000),
     resolucao_final             VARCHAR2(2000),
     detalhes_especificos        CLOB,
 
@@ -109,15 +110,16 @@ CREATE TABLE ocorrencias (
 
     -- Restrições de domínio
     CONSTRAINT ck_ocor_status CHECK (status IN (
-        'EM_TRATAMENTO', 'PENDENTE', 'ENCAMINHADO', 'CONCLUIDO', 'FINALIZADO'
+        'EM_TRATAMENTO', 'PENDENTE', 'CONCLUIDO', 'FINALIZADO'
     )),
     CONSTRAINT ck_ocor_motivo CHECK (motivo IN (
         'AVARIA', 'INVERSAO_MERCADORIA', 'FALTA_MERCADORIA', 'SOBRA_MERCADORIA',
         'DEVOLUCAO_SOLICITADA', 'PEDIDO_TROCA', 'EXTRAVIO', 'ATRASO_ENTREGA',
-        'PEDIDO_DUPLICADO', 'PEDIDO_DESACORDO', 'OUTRO'
+        'PEDIDO_DUPLICADO', 'PEDIDO_DESACORDO', 'RAZAO_SOCIAL_DESACORDO', 'OUTRO'
     )),
     CONSTRAINT ck_ocor_tipo CHECK (tipo_ocorrencia IN (
-        'DEVOLUCAO_TOTAL', 'DEVOLUCAO_PARCIAL', 'REENVIO', 'REPOSICAO'
+        'DEVOLUCAO_TOTAL', 'DEVOLUCAO_PARCIAL', 'REENVIO', 'REPOSICAO',
+        'REPOSICAO_CEDEP', 'REPOSICAO_BONIFICADA'
     )),
     CONSTRAINT ck_ocor_causa CHECK (causa_raiz IN (
         'ERRO_EXPEDICAO', 'ERRO_VENDEDOR', 'ERRO_TRANSPORTADORA', 'ERRO_MOTORISTA',
@@ -126,9 +128,6 @@ CREATE TABLE ocorrencias (
     CONSTRAINT ck_ocor_resp CHECK (responsavel_tipo IN (
         'CEDEP', 'VENDEDOR', 'TRANSPORTADORA', 'MOTORISTA',
         'CLIENTE', 'FABRICANTE', 'NAO_APLICAVEL'
-    )),
-    CONSTRAINT ck_ocor_setor CHECK (setor_destino IN (
-        'EXPEDICAO', 'FATURAMENTO', 'FINANCEIRO', 'COMERCIAL', 'GERENCIA_FILIAL', 'SAC'
     )),
     CONSTRAINT ck_ocor_detalhes_json CHECK (detalhes_especificos IS JSON)
 );
@@ -203,8 +202,9 @@ CREATE TABLE ocorrencia_eventos (
         REFERENCES ocorrencias(id) ON DELETE CASCADE,
     CONSTRAINT fk_oevt_user FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
     CONSTRAINT ck_oevt_tipo CHECK (tipo_evento IN (
-        'CRIADA', 'COMENTARIO', 'MUDANCA_STATUS', 'ANEXO_ADICIONADO',
-        'ITEM_ADICIONADO', 'APROVADA', 'REPROVADA', 'ATRIBUICAO_ALTERADA'
+        'CRIADA', 'EDITADA', 'COMENTARIO', 'MUDANCA_STATUS', 'ANEXO_ADICIONADO',
+        'ANEXO_REMOVIDO', 'ITEM_ADICIONADO', 'APROVADA', 'REPROVADA',
+        'ATRIBUICAO_ALTERADA', 'REABERTA'
     ))
 );
 

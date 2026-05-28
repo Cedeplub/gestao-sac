@@ -14,7 +14,7 @@
 app-sac-gestao/
   backend/                          ← raiz do servidor FastAPI (uvicorn)
     app/
-      main.py                       # monta routers REST (/api/v1/) e web (raiz)
+      main.py                       # monta routers web (raiz) + lifespan + seed admin
       core/
         database.py                 # read_engine + write_engine + get_write_db
         security.py                 # JWT encode/decode
@@ -29,19 +29,12 @@ app-sac-gestao/
       schemas/
         ocorrencia.py               # Pydantic schemas + requests de transição
         usuario.py
-        auth.py
-        carregamento.py
       services/
         ocorrencia_service.py       # CRUD + máquina de estados
         evento_service.py           # registra eventos no audit log
         carregamento_service.py     # consulta NF no CEDEP (read_engine)
         user_service.py
         anexo_service.py
-      api/v1/
-        ocorrencias.py              # endpoints REST
-        auth.py
-        users.py
-        carregamentos.py
       web/
         routes/
           ocorrencias.py            # rotas web HTML (GET/POST)
@@ -54,11 +47,13 @@ app-sac-gestao/
       utils/
         enums.py                    # todos os enums e dicts de labels PT-BR
     sql/                            # migrations numeradas — executar como gestao_sac_dev
-      00_instalacao_completa.sql
+      00_instalacao_completa.sql    # instalação do zero (snapshot atualizado)
       10_reabrir_finalizado.sql     # adiciona evento REABERTA ao CHECK
-      11_remover_colunas_obsoletas.sql  # drop de colunas removidas + rename descricao→observacoes
+      11_remover_colunas_obsoletas.sql  # drop de colunas descontinuadas
       12_motivo_razao_social.sql    # adiciona RAZAO_SOCIAL_DESACORDO ao CHECK de motivo
       13_tipo_ocorrencia_reposicao.sql  # adiciona REPOSICAO_CEDEP e REPOSICAO_BONIFICADA
+      15_remover_status_encaminhado.sql # remove ENCAMINHADO do CHECK de status
+      16_anexo_removido.sql         # adiciona ANEXO_REMOVIDO ao CHECK de tipo_evento
 
   frontend/                         ← templates e assets (separado do backend)
     templates/
@@ -81,8 +76,6 @@ app-sac-gestao/
         badge_status.html           # badge colorido por status
         timeline_evento.html        # linha do tempo de eventos
         nota_info.html              # resultado HTMX ao buscar NF
-        impacto_options.html
-        toast_message.html
     static/                         ← CSS e JS customizados (se houver)
 ```
 
@@ -101,12 +94,12 @@ Colunas: `id`, `numero_nota_fiscal`, `id_carregamento`, snapshot NF (`cliente`, 
 
 | Enum | Valores |
 |------|---------|
-| `StatusOcorrenciaEnum` | EM_TRATAMENTO, PENDENTE, ENCAMINHADO, CONCLUIDO, FINALIZADO |
+| `StatusOcorrenciaEnum` | EM_TRATAMENTO, PENDENTE, CONCLUIDO, FINALIZADO |
 | `MotivoEnum` | AVARIA, INVERSAO_MERCADORIA, FALTA_MERCADORIA, SOBRA_MERCADORIA, DEVOLUCAO_SOLICITADA, PEDIDO_TROCA, EXTRAVIO, ATRASO_ENTREGA, PEDIDO_DUPLICADO, PEDIDO_DESACORDO, **RAZAO_SOCIAL_DESACORDO**, OUTRO |
 | `TipoOcorrenciaEnum` | DEVOLUCAO_TOTAL, DEVOLUCAO_PARCIAL, REENVIO, REPOSICAO, **REPOSICAO_CEDEP**, **REPOSICAO_BONIFICADA** |
 | `CausaRaizEnum` | ERRO_EXPEDICAO, ERRO_VENDEDOR, ERRO_TRANSPORTADORA, ERRO_MOTORISTA, DEFEITO_FABRICA, DESISTENCIA_CLIENTE, ERRO_CLIENTE, FORA_ROTA, OUTRO |
 | `ResponsavelTipoEnum` | CEDEP, VENDEDOR, TRANSPORTADORA, MOTORISTA, CLIENTE, FABRICANTE, NAO_APLICAVEL |
-| `TipoEventoEnum` | CRIADA, EDITADA, COMENTARIO, MUDANCA_STATUS, ANEXO_ADICIONADO, ITEM_ADICIONADO, APROVADA, REPROVADA, ATRIBUICAO_ALTERADA, **REABERTA** |
+| `TipoEventoEnum` | CRIADA, EDITADA, COMENTARIO, MUDANCA_STATUS, ANEXO_ADICIONADO, **ANEXO_REMOVIDO**, ITEM_ADICIONADO, APROVADA, REPROVADA, ATRIBUICAO_ALTERADA, **REABERTA** |
 | `ItemRoleEnum` | AFETADO, ENVIADO_INCORRETAMENTE, ITEM_CORRETO |
 | `RoleEnum` | OPERADOR, GERENTE |
 
@@ -117,9 +110,8 @@ Labels PT-BR: `STATUS_LABELS`, `TIPO_LABELS`, `MOTIVO_LABELS`, `CAUSA_LABELS`, `
 ## Fluxo de status
 
 ```
-EM_TRATAMENTO → PENDENTE (marcar pendente) | ENCAMINHADO | CONCLUIDO (enviar p/ aprovação)
-PENDENTE      → EM_TRATAMENTO (reabrir)   | ENCAMINHADO | CONCLUIDO
-ENCAMINHADO   → EM_TRATAMENTO (reabrir)   | PENDENTE    | CONCLUIDO
+EM_TRATAMENTO → PENDENTE (marcar pendente) | CONCLUIDO (enviar p/ aprovação)
+PENDENTE      → EM_TRATAMENTO (reabrir)   | CONCLUIDO
 CONCLUIDO     → FINALIZADO (gerente aprovar) | EM_TRATAMENTO (gerente reprovar)
 FINALIZADO    → EM_TRATAMENTO (gerente reabrir — motivo obrigatório, evento REABERTA)
 ```
@@ -136,7 +128,6 @@ FINALIZADO    → EM_TRATAMENTO (gerente reabrir — motivo obrigatório, evento
 | GET | `/ocorrencias/{id}/editar` | edição |
 | POST | `/ocorrencias/{id}/atualizar` | salva edição |
 | POST | `/ocorrencias/{id}/pendente` | transição: marcar pendente |
-| POST | `/ocorrencias/{id}/encaminhar` | transição: encaminhar |
 | POST | `/ocorrencias/{id}/concluir` | transição: enviar p/ aprovação |
 | POST | `/ocorrencias/{id}/aprovar` | transição: aprovar e finalizar (GERENTE) |
 | POST | `/ocorrencias/{id}/reprovar` | transição: reprovar (GERENTE) |

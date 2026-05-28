@@ -6,6 +6,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.models.anexo import Anexo
+from app.services.evento_service import evento_service
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 
@@ -66,37 +67,37 @@ class AnexoService:
             criado_por_id=current_user.id,
         )
         db.add(anexo)
+        db.flush()
+        evento_service.registrar_evento(
+            db, ocorrencia_id, "ANEXO_ADICIONADO", None, None, file.filename, current_user.id
+        )
         db.commit()
         db.refresh(anexo)
         return anexo
 
     @staticmethod
     def delete(db: Session, anexo_id: int, current_user) -> None:
-        from app.utils.enums import RoleEnum
-
         anexo = db.query(Anexo).filter(Anexo.id == anexo_id).first()
         if not anexo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anexo não encontrado.")
 
-        if current_user.papel == RoleEnum.OPERADOR and anexo.criado_por_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado.")
+        nome_arquivo = anexo.nome_arquivo
+        ocorrencia_id = anexo.ocorrencia_id
 
         if os.path.exists(anexo.caminho_arquivo):
             os.remove(anexo.caminho_arquivo)
 
         db.delete(anexo)
+        evento_service.registrar_evento(
+            db, ocorrencia_id, "ANEXO_REMOVIDO", None, None, nome_arquivo, current_user.id
+        )
         db.commit()
 
     @staticmethod
     def get_file_path(db: Session, anexo_id: int, current_user) -> tuple[str, str]:
-        from app.utils.enums import RoleEnum
-
         anexo = db.query(Anexo).filter(Anexo.id == anexo_id).first()
         if not anexo:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Anexo não encontrado.")
-
-        if current_user.papel == RoleEnum.OPERADOR and anexo.criado_por_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado.")
 
         if not os.path.exists(anexo.caminho_arquivo):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo não encontrado no servidor.")

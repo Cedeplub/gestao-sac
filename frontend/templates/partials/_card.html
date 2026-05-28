@@ -1,0 +1,41 @@
+{#
+    Macro: card(title, icon, color, count, header_extra)
+
+    Renderiza um card com header (ícone + título + contador opcional) e o
+    conteúdo definido pelo bloco caller(). Use {% call card(...) %}…{% endcall %}.
+
+    Argumentos:
+      title        – string exibida no header (uppercase tracking-wide).
+      icon         – nome do ícone Lucide (data-lucide=).
+      color        – cor base do header (gray, blue, indigo, purple, orange, green, amber, red, teal, sky). Default: gray.
+      count        – número opcional exibido como badge ao lado direito.
+      header_extra – HTML opcional renderizado à direita (ex.: botões).
+#}
+{% macro card(title, icon, color='gray', count=None, header_extra='') %}
+{% set palettes = {
+    'gray':    {'icon': 'text-gray-500',    'badge_bg': 'bg-gray-200',    'badge_text': 'text-gray-600'},
+    'blue':    {'icon': 'text-blue-500',    'badge_bg': 'bg-blue-100',    'badge_text': 'text-blue-700'},
+    'indigo':  {'icon': 'text-indigo-500',  'badge_bg': 'bg-indigo-100',  'badge_text': 'text-indigo-700'},
+    'purple':  {'icon': 'text-purple-500',  'badge_bg': 'bg-purple-100',  'badge_text': 'text-purple-700'},
+    'orange':  {'icon': 'text-orange-500',  'badge_bg': 'bg-orange-100',  'badge_text': 'text-orange-700'},
+    'green':   {'icon': 'text-green-500',   'badge_bg': 'bg-green-100',   'badge_text': 'text-green-700'},
+    'amber':   {'icon': 'text-amber-500',   'badge_bg': 'bg-amber-100',   'badge_text': 'text-amber-700'},
+    'red':     {'icon': 'text-red-500',     'badge_bg': 'bg-red-100',     'badge_text': 'text-red-700'},
+    'teal':    {'icon': 'text-teal-500',    'badge_bg': 'bg-teal-100',    'badge_text': 'text-teal-700'},
+    'sky':     {'icon': 'text-sky-500',     'badge_bg': 'bg-sky-100',     'badge_text': 'text-sky-700'},
+} %}
+{% set palette = palettes.get(color, palettes['gray']) %}
+<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="flex items-center gap-2.5 border-b border-gray-100 bg-gray-50 px-6 py-3.5">
+        <i data-lucide="{{ icon }}" class="h-4 w-4 {{ palette.icon }}"></i>
+        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">{{ title }}</h2>
+        {% if count is not none %}
+        <span class="ml-auto rounded-full {{ palette.badge_bg }} px-2.5 py-0.5 text-xs font-bold {{ palette.badge_text }}">{{ count }}</span>
+        {% endif %}
+        {% if header_extra %}
+        <div class="ml-auto">{{ header_extra | safe }}</div>
+        {% endif %}
+    </div>
+    {{ caller() }}
+</div>
+{% endmacro %}

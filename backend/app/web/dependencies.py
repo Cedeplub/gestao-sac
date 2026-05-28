@@ -3,10 +3,15 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_write_db
 from app.models.usuario import Usuario
+from app.utils.enums import RoleEnum
 from app.web.session import load_token
 
 
 class RequiresLogin(Exception):
+    pass
+
+
+class RequiresGerente(Exception):
     pass
 
 
@@ -23,3 +28,7 @@ async def get_current_web_user(request: Request, db: Session = Depends(get_write
     return user
 
 
+def require_gerente_web(current_user: Usuario = Depends(get_current_web_user)) -> Usuario:
+    if current_user.papel != RoleEnum.GERENTE:
+        raise RequiresGerente()
+    return current_user

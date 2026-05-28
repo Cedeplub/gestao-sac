@@ -6,6 +6,7 @@
 {% elif tipo == 'APROVADA' %}{% set icon = 'check-circle' %}{% set color = 'text-green-500' %}{% set bg = 'bg-green-50' %}
 {% elif tipo == 'REPROVADA' %}{% set icon = 'x-circle' %}{% set color = 'text-red-500' %}{% set bg = 'bg-red-50' %}
 {% elif tipo == 'ANEXO_ADICIONADO' %}{% set icon = 'paperclip' %}{% set color = 'text-indigo-500' %}{% set bg = 'bg-indigo-50' %}
+{% elif tipo == 'ANEXO_REMOVIDO' %}{% set icon = 'paperclip' %}{% set color = 'text-red-500' %}{% set bg = 'bg-red-50' %}
 {% elif tipo == 'ITEM_ADICIONADO' %}{% set icon = 'package' %}{% set color = 'text-orange-500' %}{% set bg = 'bg-orange-50' %}
 {% elif tipo == 'ATRIBUICAO_ALTERADA' %}{% set icon = 'user-check' %}{% set color = 'text-teal-500' %}{% set bg = 'bg-teal-50' %}
 {% else %}{% set icon = 'activity' %}{% set color = 'text-gray-400' %}{% set bg = 'bg-gray-50' %}
@@ -41,6 +42,8 @@
                 <span class="ml-1 text-xs text-red-600 font-medium">reprovou</span>
                 {% elif tipo == 'ANEXO_ADICIONADO' %}
                 <span class="ml-1 text-xs text-gray-500">adicionou anexo</span>
+                {% elif tipo == 'ANEXO_REMOVIDO' %}
+                <span class="ml-1 text-xs text-red-600">removeu anexo</span>
                 {% elif tipo == 'ITEM_ADICIONADO' %}
                 <span class="ml-1 text-xs text-gray-500">adicionou item</span>
                 {% endif %}

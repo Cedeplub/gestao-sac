@@ -29,7 +29,7 @@ async def login_submit(
     user = user_service.authenticate(db, email, senha)
     if not user:
         return RedirectResponse(url="/login?erro=Credenciais+inválidas", status_code=302)
-    if not user.ativo:
+    if not user.is_ativo:
         return RedirectResponse(url="/login?erro=Usuário+inativo", status_code=302)
 
     token = create_token(user.id, user.nome, user.papel)

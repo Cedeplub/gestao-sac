@@ -2,10 +2,10 @@ import logging
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
-
-logger = logging.getLogger(__name__)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.database import get_write_db, read_engine
 from app.models.ocorrencia import Ocorrencia
@@ -14,7 +14,6 @@ from app.schemas.ocorrencia import (
     AdicionarComentarioRequest,
     AprovarRequest,
     ConcluirRequest,
-    EncaminharRequest,
     MarcarPendenteRequest,
     OcorrenciaCreate,
     OcorrenciaItemCreate,
@@ -29,33 +28,22 @@ from app.services.ocorrencia_service import ocorrencia_service
 from app.utils.enums import (
     CausaRaizEnum,
     MotivoEnum,
-    MOTIVO_LABELS,
     ResponsavelTipoEnum,
-    StatusOcorrenciaEnum,
     TipoOcorrenciaEnum,
-    TIPO_LABELS,
-    CAUSA_LABELS,
-    RESPONSAVEL_LABELS,
-    STATUS_LABELS,
+    get_enum_context,
 )
 from app.web.dependencies import get_current_web_user
 from app.web.templates_config import templates
 
 router = APIRouter(prefix="/ocorrencias", tags=["web-ocorrencias"])
 
-# Contexto de enums compartilhado por todos os templates de ocorrência
-_ENUM_CONTEXT = {
-    "tipos": TipoOcorrenciaEnum,       # DEVOLUCAO_TOTAL, REENVIO, etc.
-    "motivos": MotivoEnum,              # AVARIA, FALTA_MERCADORIA, etc.
-    "causas": CausaRaizEnum,
-    "responsaveis": ResponsavelTipoEnum,
-    "status_enum": StatusOcorrenciaEnum,
-    "tipo_labels": TIPO_LABELS,
-    "motivo_labels": MOTIVO_LABELS,
-    "causa_labels": CAUSA_LABELS,
-    "responsavel_labels": RESPONSAVEL_LABELS,
-    "status_labels": STATUS_LABELS,
-}
+
+def _mensagem_erro(exc: Exception, contexto: str) -> str:
+    """Extrai detail de HTTPException; senão, loga e devolve mensagem genérica."""
+    if isinstance(exc, HTTPException):
+        return exc.detail
+    logger.exception("%s", contexto)
+    return "Erro interno. Tente novamente."
 
 
 @router.get("", response_class=HTMLResponse, include_in_schema=False)
@@ -80,24 +68,11 @@ async def list_ocorrencias(
     di = date.fromisoformat(data_inicio) if data_inicio else None
     df = date.fromisoformat(data_fim) if data_fim else None
 
-    # Lógica de filtro por atribuição:
-    # - parâmetro ausente na URL  → filtra pelo usuário logado (default)
-    # - atribuido_a_id=0          → sem filtro (todos)
-    # - atribuido_a_id=N          → filtra pelo usuário N
-    query_keys = set(request.query_params.keys())
-    if "atribuido_a_id" not in query_keys:
-        if current_user.papel == "GERENTE":
-            atribuido_filter_id: Optional[int] = None
-            atribuido_filter_str = "0"
-        else:
-            atribuido_filter_id = current_user.id
-            atribuido_filter_str = str(current_user.id)
-    elif atribuido_a_id in (None, "", "0"):
-        atribuido_filter_id = None
-        atribuido_filter_str = "0"
-    else:
-        atribuido_filter_id = int(atribuido_a_id)
-        atribuido_filter_str = atribuido_a_id
+    atribuido_filter_id, atribuido_filter_str = ocorrencia_service.resolver_filtro_atribuido(
+        atribuido_a_id,
+        "atribuido_a_id" in request.query_params,
+        current_user,
+    )
 
     ocorrencias = ocorrencia_service.list(
         db, current_user,
@@ -112,8 +87,11 @@ async def list_ocorrencias(
         data_fim=df,
     )
 
-    # KPI independente do filtro: conta CONCLUIDO no banco sem aplicar filtros de tela
-    aguardando_aprovacao = db.query(Ocorrencia).filter(Ocorrencia.status == "CONCLUIDO").count()
+    # KPI consistente com o filtro de atribuição vigente na tela
+    kpi_query = db.query(Ocorrencia).filter(Ocorrencia.status == "CONCLUIDO")
+    if atribuido_filter_id is not None:
+        kpi_query = kpi_query.filter(Ocorrencia.atribuido_a_id == atribuido_filter_id)
+    aguardando_aprovacao = kpi_query.count()
     usuarios = user_service.get_all_users(db)
 
     return templates.TemplateResponse(
@@ -135,7 +113,7 @@ async def list_ocorrencias(
             "data_inicio_filter": data_inicio or "",
             "data_fim_filter": data_fim or "",
             "atribuido_filter": atribuido_filter_str,
-            **_ENUM_CONTEXT,
+            **get_enum_context(),
         },
     )
 
@@ -154,7 +132,7 @@ async def create_ocorrencia_page(
         try:
             ocorrencia_existente = ocorrencia_service.get(db, int(nf_dup_id), current_user)
         except Exception:
-            pass
+            logger.warning("Falha ao carregar ocorrência existente nf_dup_id=%s", nf_dup_id, exc_info=True)
     return templates.TemplateResponse(
         request,
         "pages/ocorrencias/create.html",
@@ -165,7 +143,7 @@ async def create_ocorrencia_page(
             "erro": request.query_params.get("erro", ""),
             "nf_dup_id": nf_dup_id,
             "ocorrencia_existente": ocorrencia_existente,
-            **_ENUM_CONTEXT,
+            **get_enum_context(),
         },
     )
 
@@ -187,8 +165,9 @@ async def buscar_nota(
                 erro = "Nota fiscal não encontrada no CEDEP."
         except ValueError:
             erro = "Número de nota inválido."
-        except Exception as e:
-            erro = f"Erro ao consultar nota: {str(e)}"
+        except Exception:
+            logger.exception("Erro ao consultar nota %s no CEDEP", numero_nota_fiscal)
+            erro = "Erro ao consultar nota fiscal no CEDEP."
     else:
         erro = "Informe o número da nota fiscal."
 
@@ -261,8 +240,8 @@ async def create_ocorrencia(
                         valor_total=raw.get("valor_total"),
                         item_role=ItemRoleEnum(raw.get("item_role", "AFETADO")),
                     ))
-            except Exception as exc:
-                print(f"[DEBUG] ERRO ao parsear itens_json: {exc}", flush=True)
+            except Exception:
+                logger.warning("Erro ao parsear itens_json", exc_info=True)
 
         data = OcorrenciaCreate(
             numero_nota_fiscal=int(numero_nota_fiscal),
@@ -277,16 +256,11 @@ async def create_ocorrencia(
         )
         result = ocorrencia_service.create(db, data, current_user)
 
-        # Salva arquivos anexados no momento da criação
+        # Salva arquivos anexados no momento da criação (anexo_service.save já registra o evento)
         if arquivos:
-            from app.services.evento_service import evento_service as _ev
             for file in arquivos:
                 if file and file.filename:
                     await anexo_service.save(db, result["id"], file, current_user)
-                    _ev.registrar_evento(
-                        db, result["id"], "ANEXO_ADICIONADO", None, None, file.filename, current_user.id
-                    )
-            db.commit()  # persiste eventos de anexo que ficaram pendentes após o loop
 
         if acao == "concluir":
             ocorrencia_service.concluir(
@@ -307,11 +281,8 @@ async def create_ocorrencia(
             )
         elif isinstance(e, HTTPException) and "não encontrada" in (e.detail or "").lower():
             erro = "Nota fiscal não encontrada no CEDEP."
-        elif isinstance(e, HTTPException):
-            erro = e.detail
         else:
-            logger.exception("Erro ao criar ocorrência")
-            erro = "Erro interno. Tente novamente."
+            erro = _mensagem_erro(e, "Erro ao criar ocorrência")
         return RedirectResponse(url=f"/ocorrencias/nova?erro={erro}", status_code=302)
 
 
@@ -325,6 +296,7 @@ async def view_ocorrencia(
     try:
         ocorrencia = ocorrencia_service.get(db, ocorrencia_id, current_user)
     except Exception:
+        logger.warning("Falha ao carregar ocorrência %s para visualização", ocorrencia_id, exc_info=True)
         return RedirectResponse(url="/ocorrencias", status_code=302)
 
     return templates.TemplateResponse(
@@ -336,7 +308,7 @@ async def view_ocorrencia(
             "ocorrencia": ocorrencia,
             "sucesso": request.query_params.get("sucesso", ""),
             "erro": request.query_params.get("erro", ""),
-            **_ENUM_CONTEXT,
+            **get_enum_context(),
         },
     )
 
@@ -351,6 +323,7 @@ async def edit_ocorrencia_page(
     try:
         ocorrencia = ocorrencia_service.get(db, ocorrencia_id, current_user)
     except Exception:
+        logger.warning("Falha ao carregar ocorrência %s para edição", ocorrencia_id, exc_info=True)
         return RedirectResponse(url="/ocorrencias", status_code=302)
 
     if ocorrencia["status"] == "FINALIZADO":
@@ -374,7 +347,7 @@ async def edit_ocorrencia_page(
             "ocorrencia": ocorrencia,
             "usuarios": usuarios,
             "erro": request.query_params.get("erro", ""),
-            **_ENUM_CONTEXT,
+            **get_enum_context(),
         },
     )
 
@@ -399,6 +372,7 @@ async def update_ocorrencia(
             try:
                 detalhes = _json.loads(detalhes_especificos)
             except Exception:
+                logger.warning("detalhes_especificos inválido na atualização da ocorrência %s", ocorrencia_id, exc_info=True)
                 detalhes = None
 
         data = OcorrenciaUpdate(
@@ -416,7 +390,7 @@ async def update_ocorrencia(
             status_code=302,
         )
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro ao atualizar ocorrência {ocorrencia_id}")
         return RedirectResponse(
             url=f"/ocorrencias/{ocorrencia_id}/editar?erro={erro}",
             status_code=302,
@@ -436,26 +410,7 @@ async def web_marcar_pendente(
         ocorrencia_service.marcar_pendente(db, ocorrencia_id, MarcarPendenteRequest(motivo=motivo), current_user)
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Marcada+como+pendente", status_code=302)
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
-        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
-
-
-@router.post("/{ocorrencia_id}/encaminhar", include_in_schema=False)
-async def web_encaminhar(
-    ocorrencia_id: int,
-    current_user: Usuario = Depends(get_current_web_user),
-    db: Session = Depends(get_write_db),
-    resolucao: str = Form(...),
-):
-    try:
-        ocorrencia_service.encaminhar(
-            db, ocorrencia_id,
-            EncaminharRequest(resolucao=resolucao),
-            current_user,
-        )
-        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Ocorrência+encaminhada", status_code=302)
-    except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -470,7 +425,7 @@ async def web_concluir(
         ocorrencia_service.concluir(db, ocorrencia_id, ConcluirRequest(comentario=comentario or None), current_user)
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Ocorrência+concluída", status_code=302)
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -485,7 +440,7 @@ async def web_aprovar(
         ocorrencia_service.aprovar(db, ocorrencia_id, AprovarRequest(resolucao_final=resolucao_final), current_user)
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Ocorrência+finalizada", status_code=302)
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -507,7 +462,7 @@ async def web_reprovar(
             status_code=302,
         )
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -522,7 +477,7 @@ async def web_reabrir(
         ocorrencia_service.reabrir(db, ocorrencia_id, ReabrirRequest(motivo=motivo), current_user)
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Ocorrência+reaberta", status_code=302)
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -539,7 +494,7 @@ async def web_voltar(
             status_code=302,
         )
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -561,7 +516,7 @@ async def web_comentar(
             status_code=302,
         )
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -577,12 +532,9 @@ async def upload_anexo(
     try:
         ocorrencia_service.get(db, ocorrencia_id, current_user)
         await anexo_service.save(db, ocorrencia_id, file, current_user)
-        from app.services.evento_service import evento_service
-        evento_service.registrar_evento(db, ocorrencia_id, "ANEXO_ADICIONADO", None, None, file.filename, current_user.id)
-        db.commit()
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Anexo+adicionado", status_code=302)
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
 
 
@@ -609,5 +561,5 @@ async def delete_anexo(
         anexo_service.delete(db, anexo_id, current_user)
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Anexo+removido", status_code=302)
     except Exception as e:
-        erro = e.detail if isinstance(e, HTTPException) else "Erro interno. Tente novamente."
+        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)

@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr
@@ -19,15 +18,3 @@ class UsuarioUpdate(BaseModel):
     senha: Optional[str] = None
     papel: Optional[RoleEnum] = None
     ativo: Optional[bool] = None
-
-
-class UsuarioResponse(BaseModel):
-    id: int
-    nome: str
-    email: str
-    papel: str
-    ativo: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True

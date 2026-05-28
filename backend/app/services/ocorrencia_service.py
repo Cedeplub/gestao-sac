@@ -14,7 +14,6 @@ from app.schemas.ocorrencia import (
     AdicionarComentarioRequest,
     AprovarRequest,
     ConcluirRequest,
-    EncaminharRequest,
     MarcarPendenteRequest,
     OcorrenciaCreate,
     OcorrenciaItemCreate,
@@ -26,15 +25,13 @@ from app.services.carregamento_service import carregamento_service
 from app.services.evento_service import evento_service
 
 # Diagrama de transições válidas:
-# EM_TRATAMENTO -> PENDENTE | ENCAMINHADO | CONCLUIDO
-# PENDENTE      -> EM_TRATAMENTO | ENCAMINHADO | CONCLUIDO
-# ENCAMINHADO   -> EM_TRATAMENTO | PENDENTE | CONCLUIDO
+# EM_TRATAMENTO -> PENDENTE | CONCLUIDO
+# PENDENTE      -> EM_TRATAMENTO | CONCLUIDO
 # CONCLUIDO     -> FINALIZADO (aprovação gerente) | EM_TRATAMENTO (reprovação gerente)
-# FINALIZADO    -> (terminal)
+# FINALIZADO    -> EM_TRATAMENTO (reabertura gerente)
 TRANSICOES_PERMITIDAS = {
-    "EM_TRATAMENTO": {"PENDENTE", "ENCAMINHADO", "CONCLUIDO"},
-    "PENDENTE":      {"EM_TRATAMENTO", "ENCAMINHADO", "CONCLUIDO"},
-    "ENCAMINHADO":   {"EM_TRATAMENTO", "PENDENTE", "CONCLUIDO"},
+    "EM_TRATAMENTO": {"PENDENTE", "CONCLUIDO"},
+    "PENDENTE":      {"EM_TRATAMENTO", "CONCLUIDO"},
     "CONCLUIDO":     {"FINALIZADO", "EM_TRATAMENTO"},
     "FINALIZADO":    {"EM_TRATAMENTO"},
 }
@@ -165,6 +162,26 @@ def _criar_itens(db: Session, ocorrencia_id: int, itens: list[OcorrenciaItemCrea
 
 
 class OcorrenciaService:
+
+    @staticmethod
+    def resolver_filtro_atribuido(
+        param_value: Optional[str], param_presente: bool, current_user
+    ) -> tuple[Optional[int], str]:
+        """Deriva o filtro de atribuição da listagem a partir do query param.
+
+        Regras:
+        - param ausente na URL → operador filtra por si mesmo; gerente vê todos
+        - param = "" ou "0" → todos
+        - param = N → filtra pelo usuário N
+        Retorna `(filter_id, filter_str)` onde `filter_str` é o valor a re-emitir no formulário.
+        """
+        if not param_presente:
+            if current_user.papel == "GERENTE":
+                return None, "0"
+            return current_user.id, str(current_user.id)
+        if param_value in (None, "", "0"):
+            return None, "0"
+        return int(param_value), param_value
 
     @staticmethod
     def create(db: Session, data: OcorrenciaCreate, current_user) -> dict:
@@ -318,7 +335,7 @@ class OcorrenciaService:
 
     @staticmethod
     def marcar_pendente(db: Session, ocorrencia_id: int, payload: MarcarPendenteRequest, current_user) -> dict:
-        """EM_TRATAMENTO | ENCAMINHADO -> PENDENTE"""
+        """EM_TRATAMENTO -> PENDENTE"""
         o = _load(db, ocorrencia_id)
         _validar_pode_editar(o, current_user)
         _validar_transicao(o.status, "PENDENTE")
@@ -331,21 +348,8 @@ class OcorrenciaService:
         return _to_response(_load(db, o.id))
 
     @staticmethod
-    def encaminhar(db: Session, ocorrencia_id: int, payload: EncaminharRequest, current_user) -> dict:
-        """EM_TRATAMENTO | PENDENTE -> ENCAMINHADO"""
-        o = _load(db, ocorrencia_id)
-        _validar_pode_editar(o, current_user)
-        _validar_transicao(o.status, "ENCAMINHADO")
-
-        anterior = o.status
-        o.status = "ENCAMINHADO"
-        evento_service.registrar_mudanca_status(db, o.id, anterior, "ENCAMINHADO", payload.resolucao, current_user.id)
-        db.commit()
-        return _to_response(_load(db, o.id))
-
-    @staticmethod
     def concluir(db: Session, ocorrencia_id: int, payload: ConcluirRequest, current_user) -> dict:
-        """EM_TRATAMENTO | PENDENTE | ENCAMINHADO -> CONCLUIDO"""
+        """EM_TRATAMENTO | PENDENTE -> CONCLUIDO"""
         o = _load(db, ocorrencia_id)
         _validar_pode_editar(o, current_user)
         _validar_transicao(o.status, "CONCLUIDO")

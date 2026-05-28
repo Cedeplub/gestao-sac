@@ -9,7 +9,6 @@ class RoleEnum(str, Enum):
 class StatusOcorrenciaEnum(str, Enum):
     EM_TRATAMENTO = "EM_TRATAMENTO"
     PENDENTE = "PENDENTE"
-    ENCAMINHADO = "ENCAMINHADO"
     CONCLUIDO = "CONCLUIDO"
     FINALIZADO = "FINALIZADO"
 
@@ -60,16 +59,6 @@ class ResponsavelTipoEnum(str, Enum):
     NAO_APLICAVEL = "NAO_APLICAVEL"
 
 
-class SetorDestinoEnum(str, Enum):
-    EXPEDICAO = "EXPEDICAO"
-    FATURAMENTO = "FATURAMENTO"
-    FINANCEIRO = "FINANCEIRO"
-    COMERCIAL = "COMERCIAL"
-    GERENCIA_FILIAL = "GERENCIA_FILIAL"
-    SAC = "SAC"
-
-
-
 class ItemRoleEnum(str, Enum):
     AFETADO = "AFETADO"
     ENVIADO_INCORRETAMENTE = "ENVIADO_INCORRETAMENTE"
@@ -82,6 +71,7 @@ class TipoEventoEnum(str, Enum):
     COMENTARIO = "COMENTARIO"
     MUDANCA_STATUS = "MUDANCA_STATUS"
     ANEXO_ADICIONADO = "ANEXO_ADICIONADO"
+    ANEXO_REMOVIDO = "ANEXO_REMOVIDO"
     ITEM_ADICIONADO = "ITEM_ADICIONADO"
     APROVADA = "APROVADA"
     REPROVADA = "REPROVADA"
@@ -143,12 +133,18 @@ RESPONSAVEL_LABELS = {
     "NAO_APLICAVEL": "Não aplicável",
 }
 
-SETOR_LABELS = {
-    "EXPEDICAO": "Expedição",
-    "FATURAMENTO": "Faturamento",
-    "FINANCEIRO": "Financeiro",
-    "COMERCIAL": "Comercial",
-    "GERENCIA_FILIAL": "Gerência da filial",
-    "SAC": "SAC",
-}
 
+def get_enum_context() -> dict:
+    """Contexto de enums e labels para templates de ocorrência."""
+    return {
+        "tipos": TipoOcorrenciaEnum,
+        "motivos": MotivoEnum,
+        "causas": CausaRaizEnum,
+        "responsaveis": ResponsavelTipoEnum,
+        "status_enum": StatusOcorrenciaEnum,
+        "tipo_labels": TIPO_LABELS,
+        "motivo_labels": MOTIVO_LABELS,
+        "causa_labels": CAUSA_LABELS,
+        "responsavel_labels": RESPONSAVEL_LABELS,
+        "status_labels": STATUS_LABELS,
+    }

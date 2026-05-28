@@ -11,75 +11,7 @@
 
 {% block page_content %}
 <style>[x-cloak] { display: none !important; }</style>
-
-<script>
-function ocorrenciaFormData() {
-    return {
-        produtos: [],
-        selecionadosMap: {},
-        motivo: '',
-        causa: '',
-        notaOk: false,
-        arquivos: [],
-
-        get itensJson() {
-            return JSON.stringify(Object.values(this.selecionadosMap));
-        },
-
-        onFileChange(event) {
-            const self = this;
-            Array.from(event.target.files).forEach(function(f) {
-                if (!self.arquivos.find(function(a) { return a.name === f.name; })) {
-                    self.arquivos.push({ name: f.name, size: f.size, file: f });
-                }
-            });
-            this._syncArquivos();
-            setTimeout(function() {
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }, 50);
-        },
-
-        removerArquivo(nome) {
-            this.arquivos = this.arquivos.filter(function(a) { return a.name !== nome; });
-            this._syncArquivos();
-        },
-
-        _syncArquivos() {
-            const input = document.querySelector('input[name="arquivos"]');
-            if (!input) return;
-            try {
-                const dt = new DataTransfer();
-                this.arquivos.forEach(function(a) { dt.items.add(a.file); });
-                input.files = dt.files;
-            } catch(e) {}
-        },
-
-        fmtBytes(bytes) {
-            if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
-            if (bytes >= 1024)    return (bytes / 1024).toFixed(1) + ' KB';
-            return bytes + ' B';
-        },
-
-        enviarAprovacao() {
-            const tipo       = document.querySelector('select[name="tipo_ocorrencia"]') && document.querySelector('select[name="tipo_ocorrencia"]').value;
-            const responsavel = document.querySelector('select[name="responsavel_tipo"]') && document.querySelector('select[name="responsavel_tipo"]').value;
-            const faltando = [];
-            if (!this.notaOk)   faltando.push('Nota Fiscal');
-            if (!tipo)          faltando.push('Tipo de Ocorrência');
-            if (!this.motivo)   faltando.push('Motivo');
-            if (!this.causa)    faltando.push('Causa');
-            if (!responsavel)   faltando.push('Responsável');
-            if (faltando.length) {
-                alert('Preencha os campos obrigatórios:\n• ' + faltando.join('\n• '));
-                return;
-            }
-            document.getElementById('acao-input').value = 'concluir';
-            document.getElementById('itens-json-input').value = JSON.stringify(Object.values(this.selecionadosMap));
-            document.getElementById('form-ocorrencia').submit();
-        }
-    };
-}
-</script>
+<script src="/static/js/ocorrencia-form.js"></script>
 
 <div id="ocorrencia-form-root" class="mx-auto max-w-3xl space-y-5"
      x-data="ocorrenciaFormData()">
@@ -112,7 +44,7 @@ function ocorrenciaFormData() {
 
     <form id="form-ocorrencia" method="POST" action="/ocorrencias"
           enctype="multipart/form-data"
-          @submit="document.getElementById('itens-json-input').value = JSON.stringify(Object.values(selecionadosMap))"
+          @submit="document.getElementById('itens-json-input').value = JSON.stringify(Object.values(selecionadosMap)); enviando = true"
           class="space-y-5">
         <input type="hidden" name="itens_json" id="itens-json-input" :value="itensJson">
         <input type="hidden" name="acao" id="acao-input" value="salvar">
@@ -397,15 +329,17 @@ function ocorrenciaFormData() {
                class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
                 Cancelar
             </a>
-            <button type="submit"
-                    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
-                <i data-lucide="save" class="h-4 w-4"></i>
-                Salvar
+            <button type="submit" :disabled="enviando"
+                    class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60">
+                <i x-show="!enviando" data-lucide="save" class="h-4 w-4"></i>
+                <i x-show="enviando" x-cloak data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
+                <span x-text="enviando ? 'Salvando…' : 'Salvar'"></span>
             </button>
-            <button type="button" @click="enviarAprovacao()"
-                    class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700">
-                <i data-lucide="send" class="h-4 w-4"></i>
-                Enviar para Aprovação
+            <button type="button" @click="enviarAprovacao()" :disabled="enviando"
+                    class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-60">
+                <i x-show="!enviando" data-lucide="send" class="h-4 w-4"></i>
+                <i x-show="enviando" x-cloak data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
+                <span x-text="enviando ? 'Enviando…' : 'Enviar para Aprovação'"></span>
             </button>
         </div>
 
@@ -414,30 +348,3 @@ function ocorrenciaFormData() {
 </div>
 {% endblock %}
 
-{% block scripts_extra %}
-<script>
-function onNotaSwap(evt) {
-    // Só processa quando o swap foi no #nota-info
-    if (!evt.detail || !evt.detail.target || evt.detail.target.id !== 'nota-info') return;
-    var json = document.getElementById('nota-produtos-json');
-    var root = document.getElementById('ocorrencia-form-root');
-    if (!root || !window.Alpine) return;
-    var d = Alpine.$data(root);
-    if (!d) return;
-    if (json) {
-        try {
-            d.produtos = JSON.parse(json.textContent || '[]');
-        } catch (e) {
-            d.produtos = [];
-        }
-        d.notaOk = true;
-        d.selecionadosMap = {};
-    } else {
-        d.produtos = [];
-        d.notaOk = false;
-        d.selecionadosMap = {};
-    }
-}
-document.addEventListener('htmx:afterSwap', onNotaSwap);
-</script>
-{% endblock %}

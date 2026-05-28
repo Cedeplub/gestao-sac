@@ -1,9 +1,13 @@
+import logging
+
 import oracledb
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 _oracle_initialized = False
 
@@ -16,7 +20,8 @@ def init_oracle_client():
     try:
         oracledb.init_oracle_client(lib_dir=lib_dir)
     except Exception:
-        pass
+        # Já inicializado por outro processo ou cliente em thin mode — segue o jogo.
+        logger.debug("init_oracle_client falhou (provavelmente já inicializado)", exc_info=True)
     _oracle_initialized = True
 
 
