@@ -8,7 +8,6 @@ from app.utils.enums import (
     ItemRoleEnum,
     MotivoEnum,
     ResponsavelTipoEnum,
-    SetorDestinoEnum,
     StatusOcorrenciaEnum,
     TipoOcorrenciaEnum,
 )
@@ -71,10 +70,8 @@ class OcorrenciaCreate(BaseModel):
     motivo: Optional[MotivoEnum] = None                   # AVARIA, FALTA_MERCADORIA, etc.
     causa_raiz: Optional[CausaRaizEnum] = None
     responsavel_tipo: Optional[ResponsavelTipoEnum] = None
-    responsavel_descricao: Optional[str] = Field(default=None, max_length=200)
-    setor_destino: Optional[SetorDestinoEnum] = None
 
-    descricao: Optional[str] = Field(default=None, max_length=2000)
+    observacoes: Optional[str] = Field(default=None, max_length=2000)
     detalhes_especificos: Optional[dict[str, Any]] = None
 
     atribuido_a_id: Optional[int] = None  # default = current_user.id no service
@@ -88,9 +85,7 @@ class OcorrenciaUpdate(BaseModel):
     motivo: Optional[MotivoEnum] = None                   # AVARIA, FALTA_MERCADORIA, etc.
     causa_raiz: Optional[CausaRaizEnum] = None
     responsavel_tipo: Optional[ResponsavelTipoEnum] = None
-    responsavel_descricao: Optional[str] = None
-    setor_destino: Optional[SetorDestinoEnum] = None
-    descricao: Optional[str] = None
+    observacoes: Optional[str] = None
     detalhes_especificos: Optional[dict[str, Any]] = None
     atribuido_a_id: Optional[int] = None
 
@@ -111,12 +106,9 @@ class OcorrenciaResponse(BaseModel):
     motivo: Optional[str]           # AVARIA, FALTA_MERCADORIA, etc.
     causa_raiz: Optional[str]
     responsavel_tipo: Optional[str]
-    responsavel_descricao: Optional[str]
-    setor_destino: Optional[str]
 
-    descricao: Optional[str]
+    observacoes: Optional[str]
     motivo_pendencia: Optional[str]
-    resolucao_encaminhamento: Optional[str]
     resolucao_final: Optional[str]
     detalhes_especificos: Optional[dict[str, Any]]
 
@@ -147,7 +139,6 @@ class MarcarPendenteRequest(BaseModel):
 
 
 class EncaminharRequest(BaseModel):
-    setor_destino: SetorDestinoEnum
     resolucao: str = Field(..., min_length=3, max_length=2000)
 
 

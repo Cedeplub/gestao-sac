@@ -174,18 +174,11 @@
             </div>
         </div>
 
-        {% if ocorrencia.responsavel_descricao %}
-        <div class="border-t border-gray-100 px-5 py-4">
-            <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Identificação do Responsável</p>
-            <p class="mt-1 text-sm text-gray-700">{{ ocorrencia.responsavel_descricao }}</p>
-        </div>
-        {% endif %}
-
         <!-- Textos -->
-        {% if ocorrencia.descricao %}
+        {% if ocorrencia.observacoes %}
         <div class="border-t border-gray-100 px-5 py-4">
             <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">Observações</p>
-            <p class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap border border-gray-100">{{ ocorrencia.descricao }}</p>
+            <p class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap border border-gray-100">{{ ocorrencia.observacoes }}</p>
         </div>
         {% endif %}
 
@@ -193,13 +186,6 @@
         <div class="border-t border-amber-100 bg-amber-50 px-5 py-4">
             <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-amber-600">Motivo da Pendência</p>
             <p class="rounded-lg bg-white px-4 py-3 text-sm text-amber-800 whitespace-pre-wrap border border-amber-100">{{ ocorrencia.motivo_pendencia }}</p>
-        </div>
-        {% endif %}
-
-        {% if ocorrencia.resolucao_encaminhamento %}
-        <div class="border-t border-gray-100 px-5 py-4">
-            <p class="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">Resolução / Encaminhamento</p>
-            <p class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700 whitespace-pre-wrap border border-gray-100">{{ ocorrencia.resolucao_encaminhamento }}</p>
         </div>
         {% endif %}
 

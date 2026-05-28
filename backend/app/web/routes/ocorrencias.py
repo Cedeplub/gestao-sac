@@ -31,13 +31,11 @@ from app.utils.enums import (
     MotivoEnum,
     MOTIVO_LABELS,
     ResponsavelTipoEnum,
-    SetorDestinoEnum,
     StatusOcorrenciaEnum,
     TipoOcorrenciaEnum,
     TIPO_LABELS,
     CAUSA_LABELS,
     RESPONSAVEL_LABELS,
-    SETOR_LABELS,
     STATUS_LABELS,
 )
 from app.web.dependencies import get_current_web_user
@@ -51,13 +49,11 @@ _ENUM_CONTEXT = {
     "motivos": MotivoEnum,              # AVARIA, FALTA_MERCADORIA, etc.
     "causas": CausaRaizEnum,
     "responsaveis": ResponsavelTipoEnum,
-    "setores": SetorDestinoEnum,
     "status_enum": StatusOcorrenciaEnum,
     "tipo_labels": TIPO_LABELS,
     "motivo_labels": MOTIVO_LABELS,
     "causa_labels": CAUSA_LABELS,
     "responsavel_labels": RESPONSAVEL_LABELS,
-    "setor_labels": SETOR_LABELS,
     "status_labels": STATUS_LABELS,
 }
 
@@ -72,7 +68,6 @@ async def list_ocorrencias(
     motivo: Optional[str] = None,
     causa_raiz: Optional[str] = None,
     responsavel_tipo: Optional[str] = None,
-    setor_destino: Optional[str] = None,
     numero_nota_fiscal: Optional[str] = None,
     data_inicio: Optional[str] = None,
     data_fim: Optional[str] = None,
@@ -111,7 +106,6 @@ async def list_ocorrencias(
         motivo=motivo or None,
         causa_raiz=causa_raiz or None,
         responsavel_tipo=responsavel_tipo or None,
-        setor_destino=setor_destino or None,
         numero_nota_fiscal=numero_nota_fiscal or None,
         atribuido_a_id=atribuido_filter_id,
         data_inicio=di,
@@ -137,7 +131,6 @@ async def list_ocorrencias(
             "motivo_filter": motivo or "",
             "causa_filter": causa_raiz or "",
             "responsavel_filter": responsavel_tipo or "",
-            "setor_filter": setor_destino or "",
             "nota_filter": numero_nota_fiscal or "",
             "data_inicio_filter": data_inicio or "",
             "data_fim_filter": data_fim or "",
@@ -208,7 +201,7 @@ async def create_ocorrencia(
     motivo: Optional[str] = Form(None),
     causa_raiz: Optional[str] = Form(None),
     responsavel_tipo: Optional[str] = Form(None),
-    descricao: Optional[str] = Form(None),
+    observacoes: Optional[str] = Form(None),
     motivo_outro: Optional[str] = Form(None),
     causa_outro: Optional[str] = Form(None),
     atribuido_a_id: Optional[int] = Form(None),
@@ -268,7 +261,7 @@ async def create_ocorrencia(
             motivo=MotivoEnum(motivo) if motivo else None,
             causa_raiz=CausaRaizEnum(causa_raiz) if causa_raiz else None,
             responsavel_tipo=ResponsavelTipoEnum(responsavel_tipo) if responsavel_tipo else None,
-            descricao=descricao or None,
+            observacoes=observacoes or None,
             detalhes_especificos=detalhes or None,
             atribuido_a_id=atribuido_a_id or None,
             itens=itens,
@@ -380,9 +373,7 @@ async def update_ocorrencia(
     motivo: Optional[str] = Form(None),
     causa_raiz: Optional[str] = Form(None),
     responsavel_tipo: Optional[str] = Form(None),
-    responsavel_descricao: Optional[str] = Form(None),
-    setor_destino: Optional[str] = Form(None),
-    descricao: Optional[str] = Form(None),
+    observacoes: Optional[str] = Form(None),
     atribuido_a_id: Optional[int] = Form(None),
     detalhes_especificos: Optional[str] = Form(None),
 ):
@@ -400,9 +391,7 @@ async def update_ocorrencia(
             motivo=MotivoEnum(motivo) if motivo else None,
             causa_raiz=CausaRaizEnum(causa_raiz) if causa_raiz else None,
             responsavel_tipo=ResponsavelTipoEnum(responsavel_tipo) if responsavel_tipo else None,
-            responsavel_descricao=responsavel_descricao or None,
-            setor_destino=SetorDestinoEnum(setor_destino) if setor_destino else None,
-            descricao=descricao or None,
+            observacoes=observacoes or None,
             detalhes_especificos=detalhes,
             atribuido_a_id=atribuido_a_id or None,
         )
@@ -441,13 +430,12 @@ async def web_encaminhar(
     ocorrencia_id: int,
     current_user: Usuario = Depends(get_current_web_user),
     db: Session = Depends(get_write_db),
-    setor_destino: str = Form(...),
     resolucao: str = Form(...),
 ):
     try:
         ocorrencia_service.encaminhar(
             db, ocorrencia_id,
-            EncaminharRequest(setor_destino=SetorDestinoEnum(setor_destino), resolucao=resolucao),
+            EncaminharRequest(resolucao=resolucao),
             current_user,
         )
         return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Ocorrência+encaminhada", status_code=302)

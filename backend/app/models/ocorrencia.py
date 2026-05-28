@@ -30,13 +30,10 @@ class Ocorrencia(Base):
     tipo_ocorrencia = Column(String(50))
     causa_raiz = Column(String(50))
     responsavel_tipo = Column(String(50))
-    responsavel_descricao = Column(String(200))
-    setor_destino = Column(String(50))
 
     # Textos
-    descricao = Column(String(2000))
+    observacoes = Column(String(2000))
     motivo_pendencia = Column(String(1000))
-    resolucao_encaminhamento = Column(String(2000))
     resolucao_final = Column(String(2000))
     detalhes_especificos = Column(Text)  # JSON armazenado em CLOB
 

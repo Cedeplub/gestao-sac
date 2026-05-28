@@ -98,11 +98,8 @@ def _to_response(o: Ocorrencia) -> dict:
         "motivo": o.motivo,
         "causa_raiz": o.causa_raiz,
         "responsavel_tipo": o.responsavel_tipo,
-        "responsavel_descricao": o.responsavel_descricao,
-        "setor_destino": o.setor_destino,
-        "descricao": o.descricao,
+        "observacoes": o.observacoes,
         "motivo_pendencia": o.motivo_pendencia,
-        "resolucao_encaminhamento": o.resolucao_encaminhamento,
         "resolucao_final": o.resolucao_final,
         "detalhes_especificos": o.detalhes_dict,
         "status": o.status,
@@ -196,9 +193,7 @@ class OcorrenciaService:
             motivo=data.motivo.value if data.motivo else None,
             causa_raiz=data.causa_raiz.value if data.causa_raiz else None,
             responsavel_tipo=data.responsavel_tipo.value if data.responsavel_tipo else None,
-            responsavel_descricao=data.responsavel_descricao,
-            setor_destino=data.setor_destino.value if data.setor_destino else None,
-            descricao=data.descricao,
+            observacoes=data.observacoes,
             detalhes_especificos=json.dumps(data.detalhes_especificos) if data.detalhes_especificos else None,
             status="EM_TRATAMENTO",
             criado_por_id=current_user.id,
@@ -228,7 +223,6 @@ class OcorrenciaService:
         motivo: Optional[str] = None,
         causa_raiz: Optional[str] = None,
         responsavel_tipo: Optional[str] = None,
-        setor_destino: Optional[str] = None,
         atribuido_a_id: Optional[int] = None,
         numero_nota_fiscal: Optional[str] = None,
         data_inicio=None,
@@ -254,8 +248,6 @@ class OcorrenciaService:
             query = query.filter(Ocorrencia.causa_raiz == causa_raiz)
         if responsavel_tipo:
             query = query.filter(Ocorrencia.responsavel_tipo == responsavel_tipo)
-        if setor_destino:
-            query = query.filter(Ocorrencia.setor_destino == setor_destino)
         if atribuido_a_id:
             query = query.filter(Ocorrencia.atribuido_a_id == atribuido_a_id)
         if numero_nota_fiscal:
@@ -293,12 +285,8 @@ class OcorrenciaService:
             o.causa_raiz = data.causa_raiz.value
         if data.responsavel_tipo is not None:
             o.responsavel_tipo = data.responsavel_tipo.value
-        if data.responsavel_descricao is not None:
-            o.responsavel_descricao = data.responsavel_descricao
-        if data.setor_destino is not None:
-            o.setor_destino = data.setor_destino.value
-        if data.descricao is not None:
-            o.descricao = data.descricao
+        if data.observacoes is not None:
+            o.observacoes = data.observacoes
         if data.detalhes_especificos is not None:
             o.detalhes_especificos = json.dumps(data.detalhes_especificos)
         if data.atribuido_a_id is not None:
@@ -341,8 +329,6 @@ class OcorrenciaService:
 
         anterior = o.status
         o.status = "ENCAMINHADO"
-        o.setor_destino = payload.setor_destino.value
-        o.resolucao_encaminhamento = payload.resolucao
         evento_service.registrar_mudanca_status(db, o.id, anterior, "ENCAMINHADO", payload.resolucao, current_user.id)
         db.commit()
         return _to_response(_load(db, o.id))
