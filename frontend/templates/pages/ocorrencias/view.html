@@ -159,14 +159,20 @@
             <div class="bg-white px-5 py-4">
                 <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Motivo</p>
                 <p class="mt-1 text-sm font-semibold text-gray-900">{{ motivo_labels.get(ocorrencia.motivo, ocorrencia.motivo) if ocorrencia.motivo else '—' }}</p>
+                {% if ocorrencia.motivo == 'OUTRO' and ocorrencia.detalhes_especificos and ocorrencia.detalhes_especificos.get('motivo_outro') %}
+                <p class="mt-1 text-xs text-gray-500 italic">{{ ocorrencia.detalhes_especificos.get('motivo_outro') }}</p>
+                {% endif %}
             </div>
             <div class="bg-white px-5 py-4">
                 <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Tipo de Ocorrência</p>
                 <p class="mt-1 text-sm font-semibold text-gray-900">{{ tipo_labels.get(ocorrencia.tipo_ocorrencia, ocorrencia.tipo_ocorrencia) if ocorrencia.tipo_ocorrencia else '—' }}</p>
             </div>
             <div class="bg-white px-5 py-4">
-                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Causa Raiz</p>
+                <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Causa</p>
                 <p class="mt-1 text-sm font-medium text-gray-700">{{ causa_labels.get(ocorrencia.causa_raiz, ocorrencia.causa_raiz) if ocorrencia.causa_raiz else '—' }}</p>
+                {% if ocorrencia.causa_raiz == 'OUTRO' and ocorrencia.detalhes_especificos and ocorrencia.detalhes_especificos.get('causa_outro') %}
+                <p class="mt-1 text-xs text-gray-500 italic">{{ ocorrencia.detalhes_especificos.get('causa_outro') }}</p>
+                {% endif %}
             </div>
             <div class="bg-white px-5 py-4">
                 <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Responsável</p>

@@ -178,7 +178,17 @@ class OcorrenciaService:
 
         nf = nota["nota_fiscal"]
 
-        # 2. Cria ocorrência com status EM_TRATAMENTO
+        # 2. Verifica se já existe ocorrência para esta NF
+        existing = db.query(Ocorrencia).filter(
+            Ocorrencia.numero_nota_fiscal == str(data.numero_nota_fiscal)
+        ).first()
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"NF_DUPLICADA:{existing.id}",
+            )
+
+        # 3. Cria ocorrência com status EM_TRATAMENTO
         o = Ocorrencia(
             numero_nota_fiscal=str(data.numero_nota_fiscal),
             id_carregamento=nf.get("id_carregamento"),

@@ -148,6 +148,13 @@ async def create_ocorrencia_page(
 ):
     from app.services.user_service import user_service
     usuarios = user_service.get_all_users(db)
+    nf_dup_id = request.query_params.get("nf_dup_id", "")
+    ocorrencia_existente = None
+    if nf_dup_id:
+        try:
+            ocorrencia_existente = ocorrencia_service.get(db, int(nf_dup_id), current_user)
+        except Exception:
+            pass
     return templates.TemplateResponse(
         request,
         "pages/ocorrencias/create.html",
@@ -156,6 +163,8 @@ async def create_ocorrencia_page(
             "page_title": "Nova Ocorrência",
             "usuarios": usuarios,
             "erro": request.query_params.get("erro", ""),
+            "nf_dup_id": nf_dup_id,
+            "ocorrencia_existente": ocorrencia_existente,
             **_ENUM_CONTEXT,
         },
     )
@@ -235,7 +244,7 @@ async def create_ocorrencia(
     try:
         # Build detalhes_especificos from "Outros" free-text fields
         detalhes: dict = {}
-        if tipo_ocorrencia == "OUTRO" and motivo_outro:
+        if motivo == "OUTRO" and motivo_outro:
             detalhes["motivo_outro"] = motivo_outro
         if causa_raiz == "OUTRO" and causa_outro:
             detalhes["causa_outro"] = causa_outro
@@ -290,7 +299,13 @@ async def create_ocorrencia(
 
         return RedirectResponse(url=f"/ocorrencias/{result['id']}", status_code=302)
     except Exception as e:
-        if isinstance(e, HTTPException) and "não encontrada" in (e.detail or "").lower():
+        if isinstance(e, HTTPException) and str(e.detail or "").startswith("NF_DUPLICADA:"):
+            nf_dup_id = str(e.detail).split(":")[1]
+            return RedirectResponse(
+                url=f"/ocorrencias/nova?nf_dup_id={nf_dup_id}",
+                status_code=302,
+            )
+        elif isinstance(e, HTTPException) and "não encontrada" in (e.detail or "").lower():
             erro = "Nota fiscal não encontrada no CEDEP."
         elif isinstance(e, HTTPException):
             erro = e.detail

@@ -25,6 +25,7 @@ class MotivoEnum(str, Enum):
     ATRASO_ENTREGA = "ATRASO_ENTREGA"
     PEDIDO_DUPLICADO = "PEDIDO_DUPLICADO"
     PEDIDO_DESACORDO = "PEDIDO_DESACORDO"
+    RAZAO_SOCIAL_DESACORDO = "RAZAO_SOCIAL_DESACORDO"
     OUTRO = "OUTRO"
 
 
@@ -33,6 +34,8 @@ class TipoOcorrenciaEnum(str, Enum):
     DEVOLUCAO_PARCIAL = "DEVOLUCAO_PARCIAL"
     REENVIO = "REENVIO"
     REPOSICAO = "REPOSICAO"
+    REPOSICAO_CEDEP = "REPOSICAO_CEDEP"
+    REPOSICAO_BONIFICADA = "REPOSICAO_BONIFICADA"
 
 
 class CausaRaizEnum(str, Enum):
@@ -99,6 +102,8 @@ TIPO_LABELS = {
     "DEVOLUCAO_PARCIAL": "Devolução parcial",
     "REENVIO": "Reenvio",
     "REPOSICAO": "Reposição (faturamento contra terceiro)",
+    "REPOSICAO_CEDEP": "Reposição (CEDEP)",
+    "REPOSICAO_BONIFICADA": "Reposição bonificada",
 }
 
 MOTIVO_LABELS = {
@@ -112,6 +117,7 @@ MOTIVO_LABELS = {
     "ATRASO_ENTREGA": "Atraso na entrega",
     "PEDIDO_DUPLICADO": "Pedido duplicado",
     "PEDIDO_DESACORDO": "Pedido em desacordo",
+    "RAZAO_SOCIAL_DESACORDO": "Razão social em desacordo",
     "OUTRO": "Outro",
 }
 
