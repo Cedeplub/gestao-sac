@@ -10,128 +10,332 @@
 {% endblock %}
 
 {% block page_content %}
-<div class="mx-auto max-w-3xl space-y-6"
-     x-data="{
-        detalhes: {{ ocorrencia.detalhes_especificos | tojson if ocorrencia.detalhes_especificos else '{}' }},
-        enviando: false,
-        get detalhesJson() { return JSON.stringify(this.detalhes); }
-     }">
+<style>[x-cloak] { display: none !important; }</style>
+
+<script id="nota-produtos-json" type="application/json">{{ produtos | tojson }}</script>
+<script id="ocorrencia-itens-json" type="application/json">{{ itens_json | tojson }}</script>
+<script src="/static/js/ocorrencia-form.js"></script>
+
+<div id="ocorrencia-edit-root" class="mx-auto max-w-3xl space-y-5"
+     x-data='ocorrenciaEditFormData({
+        motivo: {{ (ocorrencia.motivo or "") | tojson }},
+        causa: {{ (ocorrencia.causa_raiz or "") | tojson }},
+        geraColeta: {{ "true" if ocorrencia.gera_coleta else "false" }},
+        motoristaColeta: {{ (ocorrencia.motorista_coleta or "") | tojson }}
+     })'>
 
     {% if erro %}
-    <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0"></i>
-        <span>{{ erro }}</span>
+    <div class="rounded-lg border border-red-200 bg-red-50 p-4 flex items-center gap-2">
+        <i data-lucide="alert-circle" class="h-4 w-4 flex-shrink-0 text-red-500"></i>
+        <p class="text-sm text-red-700">{{ erro }}</p>
     </div>
     {% endif %}
 
-    <!-- Card readonly: Dados da NF -->
-    <div class="rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
-        <div class="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
-            <i data-lucide="file-text" class="h-4 w-4 text-gray-400"></i>
-            <h3 class="text-base font-semibold text-gray-600">Nota Fiscal</h3>
-            <span class="ml-auto rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">Somente leitura</span>
-        </div>
-        <div class="grid grid-cols-2 gap-x-6 gap-y-3 p-6 sm:grid-cols-4 text-sm">
-            <div><p class="text-xs font-semibold uppercase text-gray-400">NF</p><p class="mt-0.5 font-semibold text-gray-700">#{{ ocorrencia.numero_nota_fiscal }}</p></div>
-            <div><p class="text-xs font-semibold uppercase text-gray-400">Cliente</p><p class="mt-0.5 text-gray-600">{{ ocorrencia.cliente or '—' }}</p></div>
-            <div><p class="text-xs font-semibold uppercase text-gray-400">Vendedor</p><p class="mt-0.5 text-gray-600">{{ ocorrencia.vendedor or '—' }}</p></div>
-            <div><p class="text-xs font-semibold uppercase text-gray-400">Valor Total</p>
-                <p class="mt-0.5 text-gray-600">{% if ocorrencia.valor_total %}R$ {{ "%.2f"|format(ocorrencia.valor_total)|replace('.', ',') }}{% else %}—{% endif %}</p>
+    <form id="form-ocorrencia" method="POST"
+          action="/ocorrencias/{{ ocorrencia.id }}/atualizar"
+          @submit="document.getElementById('itens-json-input').value = JSON.stringify(Object.values(selecionadosMap)); enviando = true"
+          class="space-y-5">
+        <input type="hidden" name="itens_json" id="itens-json-input" :value="itensJson">
+        <input type="hidden" name="gera_coleta_present" value="1" />
+
+        <!-- ============================================================ -->
+        <!-- 1) Card readonly: snapshot da NF (CEDEP)                       -->
+        <!-- ============================================================ -->
+        <div class="rounded-xl border border-gray-200 bg-gray-50 shadow-sm">
+            <div class="flex items-center gap-2 border-b border-gray-100 px-5 py-3">
+                <i data-lucide="file-text" class="h-4 w-4 text-gray-400"></i>
+                <h3 class="text-sm font-semibold text-gray-600">Nota Fiscal</h3>
+                <span class="ml-auto rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">Somente leitura</span>
+            </div>
+            <div class="grid grid-cols-2 gap-x-6 gap-y-3 p-5 sm:grid-cols-4 text-sm">
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">NF</p>
+                    <p class="mt-0.5 font-semibold text-gray-700">#{{ ocorrencia.numero_nota_fiscal }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">Cliente</p>
+                    <p class="mt-0.5 text-gray-600">{{ ocorrencia.cliente or '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">Vendedor</p>
+                    <p class="mt-0.5 text-gray-600">{{ ocorrencia.vendedor or '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">Valor Total</p>
+                    <p class="mt-0.5 text-gray-600">
+                        {% if ocorrencia.valor_total %}R$ {{ "%.2f"|format(ocorrencia.valor_total)|replace('.', ',') }}{% else %}—{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">Motorista (entrega)</p>
+                    <p class="mt-0.5 text-gray-600">{{ ocorrencia.motorista or '—' }}</p>
+                </div>
+                {% if ocorrencia.transportadora %}
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">Transportadora</p>
+                    <p class="mt-0.5 text-gray-600">{{ ocorrencia.transportadora }}</p>
+                </div>
+                {% endif %}
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">Faturamento</p>
+                    <p class="mt-0.5 text-gray-600">
+                        {% if ocorrencia.data_faturamento %}{{ ocorrencia.data_faturamento.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase text-gray-400">Saída Carreg.</p>
+                    <p class="mt-0.5 text-gray-600">
+                        {% if ocorrencia.data_saida_carregamento %}{{ ocorrencia.data_saida_carregamento.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+                    </p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Form de Edição -->
-    <form action="/ocorrencias/{{ ocorrencia.id }}/atualizar" method="post" class="space-y-6"
-          @submit="enviando = true">
-        <input type="hidden" name="detalhes_especificos" :value="detalhesJson" />
-
-        <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-5">
-            <h3 class="text-base font-semibold text-gray-900">Classificação</h3>
-
-            <!-- Tipo de Ocorrência → tipo_ocorrencia (DB: impacto) -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Tipo de Ocorrência <span class="text-red-500">*</span></label>
-                <select name="tipo_ocorrencia" required
-                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                    {% for t in tipos %}
-                    <option value="{{ t.value }}" {% if ocorrencia.tipo_ocorrencia == t.value %}selected{% endif %}>
-                        {{ tipo_labels.get(t.value, t.value) }}
-                    </option>
-                    {% endfor %}
-                </select>
+        <!-- ============================================================ -->
+        <!-- 2) Produtos afetados (espelho do create.html)                 -->
+        <!-- ============================================================ -->
+        <div class="rounded-xl border border-blue-200 bg-white shadow-sm overflow-hidden"
+             x-show="produtos.length > 0 || Object.keys(selecionadosMap).length > 0" x-cloak>
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-700">Produtos afetados</h3>
+                <div class="flex gap-3">
+                    <button type="button"
+                            x-show="produtos.length > 0 && Object.keys(selecionadosMap).length < produtos.length"
+                            @click="selecionadosMap = Object.fromEntries(produtos.map(p => [p.codprod, {codprod: String(p.codprod), descricao_produto: p.descricao||'', qtd_afetada: p.qt, valor_unitario: p.pvenda, valor_total: p.qt*p.pvenda, item_role:'AFETADO'}]))"
+                            class="text-xs font-medium text-blue-600 hover:underline">
+                        Selecionar todos
+                    </button>
+                    <button type="button"
+                            x-show="Object.keys(selecionadosMap).length > 0"
+                            @click="selecionadosMap = {}"
+                            class="text-xs font-medium text-red-500 hover:underline">
+                        Remover seleção
+                    </button>
+                </div>
             </div>
 
-            <!-- Motivo → motivo (DB: tipo_ocorrencia) -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Motivo</label>
-                <select name="motivo"
-                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                    <option value="">Selecione...</option>
-                    {% for m in motivos %}
-                    <option value="{{ m.value }}" {% if ocorrencia.motivo == m.value %}selected{% endif %}>
-                        {{ motivo_labels.get(m.value, m.value) }}
-                    </option>
-                    {% endfor %}
-                </select>
+            <div class="overflow-x-auto" x-show="produtos.length > 0">
+                <table class="min-w-full divide-y divide-gray-100">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="w-10 px-3 py-2"></th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Código</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Descrição</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Qtd NF</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Qtd Afetada</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50">
+                        <template x-for="p in produtos" :key="p.codprod">
+                            <tr class="transition hover:bg-gray-50"
+                                :class="String(p.codprod) in selecionadosMap ? 'bg-blue-50' : ''">
+                                <td class="px-3 py-2 text-center">
+                                    <input type="checkbox"
+                                           :checked="String(p.codprod) in selecionadosMap"
+                                           @change="selecionadosMap = $event.target.checked
+                                               ? Object.assign({}, selecionadosMap, {[String(p.codprod)]: {codprod: String(p.codprod), descricao_produto: p.descricao||'', qtd_afetada: p.qt, valor_unitario: p.pvenda, valor_total: p.qt*p.pvenda, item_role:'AFETADO'}})
+                                               : Object.fromEntries(Object.entries(selecionadosMap).filter(([k]) => k !== String(p.codprod)))"
+                                           class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-600" x-text="p.codprod"></td>
+                                <td class="px-3 py-2 text-sm text-gray-800" x-text="p.descricao"></td>
+                                <td class="px-3 py-2 text-sm text-gray-500 text-right" x-text="p.qt"></td>
+                                <td class="px-3 py-2 text-right">
+                                    <input type="number" min="0" step="0.01"
+                                           x-show="String(p.codprod) in selecionadosMap"
+                                           :value="selecionadosMap[String(p.codprod)] ? selecionadosMap[String(p.codprod)].qtd_afetada : ''"
+                                           @input="selecionadosMap = Object.assign({}, selecionadosMap, {[String(p.codprod)]: Object.assign({}, selecionadosMap[String(p.codprod)], {qtd_afetada: parseFloat($event.target.value)||0, valor_total: (parseFloat($event.target.value)||0) * (selecionadosMap[String(p.codprod)] ? selecionadosMap[String(p.codprod)].valor_unitario : 0)})})"
+                                           class="w-24 rounded border border-gray-300 px-2 py-1 text-sm text-right focus:border-blue-400 focus:outline-none" />
+                                    <span x-show="!(String(p.codprod) in selecionadosMap)" class="text-xs text-gray-300">—</span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
             </div>
 
-            <!-- Causa raiz -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Causa</label>
-                <select name="causa_raiz"
-                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                    <option value="">Selecione...</option>
-                    {% for c in causas %}
-                    <option value="{{ c.value }}" {% if ocorrencia.causa_raiz == c.value %}selected{% endif %}>
-                        {{ causa_labels.get(c.value, c.value) }}
-                    </option>
-                    {% endfor %}
-                </select>
+            <!-- Fallback: produtos do CEDEP indisponíveis, mas há itens já salvos -->
+            <div x-show="produtos.length === 0 && Object.keys(selecionadosMap).length > 0" x-cloak
+                 class="overflow-x-auto border-t border-amber-100 bg-amber-50">
+                <p class="px-5 py-2 text-xs text-amber-700">
+                    Produtos da NF não estão disponíveis no CEDEP no momento. Você pode ajustar quantidades ou remover itens já salvos.
+                </p>
+                <table class="min-w-full divide-y divide-amber-100">
+                    <thead>
+                        <tr class="bg-amber-50">
+                            <th class="w-10 px-3 py-2"></th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-amber-700">Código</th>
+                            <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-amber-700">Descrição</th>
+                            <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-amber-700">Qtd Afetada</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-amber-50">
+                        <template x-for="(item, codprod) in selecionadosMap" :key="codprod">
+                            <tr>
+                                <td class="px-3 py-2 text-center">
+                                    <button type="button"
+                                            @click="selecionadosMap = Object.fromEntries(Object.entries(selecionadosMap).filter(([k]) => k !== codprod))"
+                                            title="Remover item"
+                                            class="text-red-500 hover:text-red-700">
+                                        <i data-lucide="x" class="h-4 w-4"></i>
+                                    </button>
+                                </td>
+                                <td class="px-3 py-2 text-sm text-gray-700" x-text="item.codprod"></td>
+                                <td class="px-3 py-2 text-sm text-gray-800" x-text="item.descricao_produto"></td>
+                                <td class="px-3 py-2 text-right">
+                                    <input type="number" min="0" step="0.01"
+                                           :value="item.qtd_afetada"
+                                           @input="selecionadosMap = Object.assign({}, selecionadosMap, {[codprod]: Object.assign({}, item, {qtd_afetada: parseFloat($event.target.value)||0, valor_total: (parseFloat($event.target.value)||0) * (item.valor_unitario || 0)})})"
+                                           class="w-24 rounded border border-amber-300 px-2 py-1 text-sm text-right focus:border-amber-500 focus:outline-none" />
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
             </div>
 
-            <!-- Responsável -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Responsável</label>
-                <select name="responsavel_tipo"
-                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                    <option value="">Selecione...</option>
-                    {% for r in responsaveis %}
-                    <option value="{{ r.value }}" {% if ocorrencia.responsavel_tipo == r.value %}selected{% endif %}>
-                        {{ responsavel_labels.get(r.value, r.value) }}
-                    </option>
-                    {% endfor %}
-                </select>
+            <div class="px-5 py-2 border-t border-gray-100 text-xs text-gray-400">
+                <span x-text="Object.keys(selecionadosMap).length"></span>
+                de <span x-text="produtos.length || Object.keys(selecionadosMap).length"></span> produto(s) selecionado(s)
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 3) Classificação                                              -->
+        <!-- ============================================================ -->
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+            <h3 class="text-sm font-semibold text-gray-700">Classificação</h3>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                <!-- Tipo de Ocorrência -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Tipo de Ocorrência <span class="text-red-500">*</span>
+                    </label>
+                    <select name="tipo_ocorrencia" required
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        {% for t in tipos %}
+                        <option value="{{ t.value }}" {% if ocorrencia.tipo_ocorrencia == t.value %}selected{% endif %}>
+                            {{ tipo_labels.get(t.value, t.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Motivo -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Motivo
+                    </label>
+                    <select name="motivo" x-model="motivo"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        {% for m in motivos %}
+                        <option value="{{ m.value }}">{{ motivo_labels.get(m.value, m.value) }}</option>
+                        {% endfor %}
+                    </select>
+                    <input x-show="motivo === 'OUTRO'" x-cloak
+                           type="text" name="motivo_outro"
+                           value="{{ ocorrencia.detalhes_especificos.get('motivo_outro', '') if ocorrencia.detalhes_especificos else '' }}"
+                           placeholder="Descreva o motivo..."
+                           class="mt-2 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+
+                <!-- Causa -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Causa
+                    </label>
+                    <select name="causa_raiz" x-model="causa"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        {% for c in causas %}
+                        <option value="{{ c.value }}">{{ causa_labels.get(c.value, c.value) }}</option>
+                        {% endfor %}
+                    </select>
+                    <input x-show="causa === 'OUTRO'" x-cloak
+                           type="text" name="causa_outro"
+                           value="{{ ocorrencia.detalhes_especificos.get('causa_outro', '') if ocorrencia.detalhes_especificos else '' }}"
+                           placeholder="Descreva a causa..."
+                           class="mt-2 w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+
+                <!-- Responsável -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Responsável
+                    </label>
+                    <select name="responsavel_tipo"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                        <option value="">Selecione...</option>
+                        {% for r in responsaveis %}
+                        <option value="{{ r.value }}" {% if ocorrencia.responsavel_tipo == r.value %}selected{% endif %}>
+                            {{ responsavel_labels.get(r.value, r.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+            </div>
+
+            <!-- Gera coleta -->
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-3">
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="gera_coleta" value="1" x-model="geraColeta"
+                           class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <span class="text-sm font-medium text-gray-700">Gera coleta</span>
+                </label>
+                <div x-show="geraColeta" x-cloak>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Motorista da coleta
+                    </label>
+                    <input type="text" name="motorista_coleta" x-model="motoristaColeta"
+                           maxlength="200" placeholder="Nome do motorista que fará a coleta"
+                           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
             </div>
 
             <!-- Observações -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Observações</label>
-                <textarea name="observacoes" rows="4" maxlength="2000"
-                          class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none">{{ ocorrencia.observacoes or '' }}</textarea>
-            </div>
-
-            <!-- Atribuição -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1.5">Atribuído a</label>
-                {% if current_user.papel == 'GERENTE' %}
-                <select name="atribuido_a_id"
-                        class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200">
-                    {% for u in usuarios %}
-                    <option value="{{ u.id }}" {% if ocorrencia.atribuido_a_id == u.id %}selected{% endif %}>
-                        {{ u.nome }}{% if u.papel == 'GERENTE' %} (Gerente){% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
-                {% else %}
-                <input type="hidden" name="atribuido_a_id" value="{{ current_user.id }}" />
-                <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">{{ current_user.nome }} (você)</p>
-                {% endif %}
+                <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                    Observações
+                </label>
+                <textarea name="observacoes" rows="3" maxlength="2000"
+                          placeholder="Informações adicionais sobre a ocorrência..."
+                          class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none">{{ ocorrencia.observacoes or '' }}</textarea>
             </div>
         </div>
 
-        <!-- Botões -->
-        <div class="flex items-center justify-end gap-3">
+        <!-- ============================================================ -->
+        <!-- 4) Atribuição                                                 -->
+        <!-- ============================================================ -->
+        <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                Atribuído a
+            </label>
+            {% if current_user.papel == 'GERENTE' %}
+            <select name="atribuido_a_id"
+                    class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:max-w-xs">
+                {% for u in usuarios %}
+                <option value="{{ u.id }}" {% if ocorrencia.atribuido_a_id == u.id %}selected{% endif %}>
+                    {{ u.nome }}{% if u.papel == 'GERENTE' %} (Gerente){% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <input type="hidden" name="atribuido_a_id" value="{{ current_user.id }}" />
+            <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                {{ current_user.nome }} (você)
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- 5) Ações                                                      -->
+        <!-- ============================================================ -->
+        <div class="flex items-center justify-end gap-3 pb-4">
             <a href="/ocorrencias/{{ ocorrencia.id }}"
                class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
                 Cancelar
@@ -143,6 +347,7 @@
                 <span x-text="enviando ? 'Salvando…' : 'Salvar Alterações'"></span>
             </button>
         </div>
+
     </form>
 </div>
 {% endblock %}

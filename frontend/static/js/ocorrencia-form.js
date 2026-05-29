@@ -8,6 +8,8 @@ window.ocorrenciaFormData = function () {
         motivo: '',
         causa: '',
         notaOk: false,
+        geraColeta: false,
+        motoristaColeta: '',
         arquivos: [],
         enviando: false,
 
@@ -96,3 +98,40 @@ function onNotaSwap(evt) {
 }
 
 document.addEventListener('htmx:afterSwap', onNotaSwap);
+
+
+// Estado para a página de edição. Lê produtos e itens já salvos a partir de
+// <script type="application/json"> renderizados pelo servidor; pré-marca os itens.
+window.ocorrenciaEditFormData = function (initial) {
+    const produtosEl = document.getElementById('nota-produtos-json');
+    const itensEl = document.getElementById('ocorrencia-itens-json');
+    const produtos = produtosEl ? JSON.parse(produtosEl.textContent || '[]') : [];
+    const itens = itensEl ? JSON.parse(itensEl.textContent || '[]') : [];
+
+    const selecionadosMap = {};
+    for (const it of itens) {
+        if (it.codprod === null || it.codprod === undefined) continue;
+        selecionadosMap[String(it.codprod)] = {
+            codprod: String(it.codprod),
+            descricao_produto: it.descricao_produto || '',
+            qtd_afetada: it.qtd_afetada,
+            valor_unitario: it.valor_unitario,
+            valor_total: it.valor_total,
+            item_role: it.item_role || 'AFETADO',
+        };
+    }
+
+    initial = initial || {};
+    return {
+        produtos: produtos,
+        selecionadosMap: selecionadosMap,
+        motivo: initial.motivo || '',
+        causa: initial.causa || '',
+        geraColeta: !!initial.geraColeta,
+        motoristaColeta: initial.motoristaColeta || '',
+        enviando: false,
+        get itensJson() {
+            return JSON.stringify(Object.values(this.selecionadosMap));
+        },
+    };
+};

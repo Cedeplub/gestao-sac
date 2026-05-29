@@ -236,6 +236,23 @@
 
             </div>
 
+            <!-- Gera coleta -->
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-3">
+                <label class="inline-flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="gera_coleta" value="1" x-model="geraColeta"
+                           class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <span class="text-sm font-medium text-gray-700">Gera coleta</span>
+                </label>
+                <div x-show="geraColeta" x-cloak>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                        Motorista da coleta
+                    </label>
+                    <input type="text" name="motorista_coleta" x-model="motoristaColeta"
+                           maxlength="200" placeholder="Nome do motorista que fará a coleta"
+                           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                </div>
+            </div>
+
             <!-- Observações -->
             <div>
                 <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
