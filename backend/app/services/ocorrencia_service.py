@@ -95,6 +95,8 @@ def _to_response(o: Ocorrencia) -> dict:
         "motivo": o.motivo,
         "causa_raiz": o.causa_raiz,
         "responsavel_tipo": o.responsavel_tipo,
+        "gera_coleta": bool(o.gera_coleta),
+        "motorista_coleta": o.motorista_coleta,
         "observacoes": o.observacoes,
         "motivo_pendencia": o.motivo_pendencia,
         "resolucao_final": o.resolucao_final,
@@ -220,6 +222,8 @@ class OcorrenciaService:
             motivo=data.motivo.value if data.motivo else None,
             causa_raiz=data.causa_raiz.value if data.causa_raiz else None,
             responsavel_tipo=data.responsavel_tipo.value if data.responsavel_tipo else None,
+            gera_coleta=1 if data.gera_coleta else 0,
+            motorista_coleta=data.motorista_coleta if data.gera_coleta else None,
             observacoes=data.observacoes,
             detalhes_especificos=json.dumps(data.detalhes_especificos) if data.detalhes_especificos else None,
             status="EM_TRATAMENTO",
@@ -312,6 +316,17 @@ class OcorrenciaService:
             o.causa_raiz = data.causa_raiz.value
         if data.responsavel_tipo is not None:
             o.responsavel_tipo = data.responsavel_tipo.value
+        if data.gera_coleta is not None:
+            o.gera_coleta = 1 if data.gera_coleta else 0
+            if not data.gera_coleta:
+                o.motorista_coleta = None
+        # Aceita atualização do motorista quando a flag continua ligada
+        # (seja pelo update atual, seja porque já estava ligada antes).
+        gera_coleta_efetivo = (
+            data.gera_coleta if data.gera_coleta is not None else bool(o.gera_coleta)
+        )
+        if gera_coleta_efetivo and data.motorista_coleta is not None:
+            o.motorista_coleta = data.motorista_coleta or None
         if data.observacoes is not None:
             o.observacoes = data.observacoes
         if data.detalhes_especificos is not None:
@@ -322,6 +337,12 @@ class OcorrenciaService:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                                     detail="Operadores só podem reatribuir para si mesmos.")
             o.atribuido_a_id = data.atribuido_a_id
+
+        if data.itens is not None:
+            db.query(OcorrenciaItem).filter(
+                OcorrenciaItem.ocorrencia_id == o.id
+            ).delete(synchronize_session=False)
+            _criar_itens(db, o.id, data.itens)
 
         evento_service.registrar_evento(db, o.id, "EDITADA", None, None, None, current_user.id)
 

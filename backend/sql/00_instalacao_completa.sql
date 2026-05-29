@@ -84,6 +84,10 @@ CREATE TABLE ocorrencias (
     causa_raiz                  VARCHAR2(50),
     responsavel_tipo            VARCHAR2(50),
 
+    -- Coleta (retorno da mercadoria)
+    gera_coleta                 NUMBER(1)       DEFAULT 0 NOT NULL,
+    motorista_coleta            VARCHAR2(200),
+
     -- Textos descritivos
     observacoes                 VARCHAR2(2000),
     motivo_pendencia            VARCHAR2(1000),
@@ -129,6 +133,7 @@ CREATE TABLE ocorrencias (
         'CEDEP', 'VENDEDOR', 'TRANSPORTADORA', 'MOTORISTA',
         'CLIENTE', 'FABRICANTE', 'NAO_APLICAVEL'
     )),
+    CONSTRAINT ck_ocor_gera_coleta CHECK (gera_coleta IN (0, 1)),
     CONSTRAINT ck_ocor_detalhes_json CHECK (detalhes_especificos IS JSON)
 );
 

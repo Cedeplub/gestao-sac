@@ -32,6 +32,9 @@ class OcorrenciaCreate(BaseModel):
     causa_raiz: Optional[CausaRaizEnum] = None
     responsavel_tipo: Optional[ResponsavelTipoEnum] = None
 
+    gera_coleta: bool = False
+    motorista_coleta: Optional[str] = Field(default=None, max_length=200)
+
     observacoes: Optional[str] = Field(default=None, max_length=2000)
     detalhes_especificos: Optional[dict[str, Any]] = None
 
@@ -46,9 +49,13 @@ class OcorrenciaUpdate(BaseModel):
     motivo: Optional[MotivoEnum] = None
     causa_raiz: Optional[CausaRaizEnum] = None
     responsavel_tipo: Optional[ResponsavelTipoEnum] = None
+    gera_coleta: Optional[bool] = None
+    motorista_coleta: Optional[str] = Field(default=None, max_length=200)
     observacoes: Optional[str] = None
     detalhes_especificos: Optional[dict[str, Any]] = None
     atribuido_a_id: Optional[int] = None
+    # None = não tocar; [] = remover todos; lista preenchida = substituir.
+    itens: Optional[List[OcorrenciaItemCreate]] = None
 
 
 # ---------- Transições de status ----------

@@ -192,6 +192,8 @@ async def create_ocorrencia(
     observacoes: Optional[str] = Form(None),
     motivo_outro: Optional[str] = Form(None),
     causa_outro: Optional[str] = Form(None),
+    gera_coleta: Optional[str] = Form(None),
+    motorista_coleta: Optional[str] = Form(None),
     atribuido_a_id: Optional[int] = Form(None),
     itens_json: str = Form("[]"),
     acao: Optional[str] = Form(None),
@@ -243,12 +245,15 @@ async def create_ocorrencia(
             except Exception:
                 logger.warning("Erro ao parsear itens_json", exc_info=True)
 
+        gera_coleta_bool = gera_coleta == "1"
         data = OcorrenciaCreate(
             numero_nota_fiscal=int(numero_nota_fiscal),
             tipo_ocorrencia=TipoOcorrenciaEnum(tipo_ocorrencia) if tipo_ocorrencia else None,
             motivo=MotivoEnum(motivo) if motivo else None,
             causa_raiz=CausaRaizEnum(causa_raiz) if causa_raiz else None,
             responsavel_tipo=ResponsavelTipoEnum(responsavel_tipo) if responsavel_tipo else None,
+            gera_coleta=gera_coleta_bool,
+            motorista_coleta=(motorista_coleta or None) if gera_coleta_bool else None,
             observacoes=observacoes or None,
             detalhes_especificos=detalhes or None,
             atribuido_a_id=atribuido_a_id or None,
@@ -338,6 +343,34 @@ async def edit_ocorrencia_page(
     from app.services.user_service import user_service
     usuarios = user_service.get_all_users(db)
 
+    # Tenta recarregar produtos do CEDEP para permitir reedição dos itens afetados.
+    produtos: list = []
+    try:
+        nota = carregamento_service.get_por_nota(
+            read_engine, int(ocorrencia["numero_nota_fiscal"])
+        )
+        if nota:
+            produtos = nota["nota_fiscal"].get("produtos", []) or []
+    except Exception:
+        logger.warning(
+            "Falha ao recarregar produtos da NF %s no CEDEP para edição",
+            ocorrencia.get("numero_nota_fiscal"),
+            exc_info=True,
+        )
+
+    # Itens em formato leve para o <script type="application/json"> — sem datetimes.
+    itens_json = [
+        {
+            "codprod": it.get("codprod"),
+            "descricao_produto": it.get("descricao_produto"),
+            "qtd_afetada": it.get("qtd_afetada"),
+            "valor_unitario": it.get("valor_unitario"),
+            "valor_total": it.get("valor_total"),
+            "item_role": it.get("item_role"),
+        }
+        for it in (ocorrencia.get("itens") or [])
+    ]
+
     return templates.TemplateResponse(
         request,
         "pages/ocorrencias/edit.html",
@@ -345,6 +378,8 @@ async def edit_ocorrencia_page(
             "current_user": current_user,
             "page_title": f"Editar Ocorrência #{ocorrencia_id}",
             "ocorrencia": ocorrencia,
+            "produtos": produtos,
+            "itens_json": itens_json,
             "usuarios": usuarios,
             "erro": request.query_params.get("erro", ""),
             **get_enum_context(),
@@ -361,28 +396,54 @@ async def update_ocorrencia(
     motivo: Optional[str] = Form(None),
     causa_raiz: Optional[str] = Form(None),
     responsavel_tipo: Optional[str] = Form(None),
+    gera_coleta: Optional[str] = Form(None),
+    gera_coleta_present: Optional[str] = Form(None),
+    motorista_coleta: Optional[str] = Form(None),
     observacoes: Optional[str] = Form(None),
+    motivo_outro: Optional[str] = Form(None),
+    causa_outro: Optional[str] = Form(None),
     atribuido_a_id: Optional[int] = Form(None),
-    detalhes_especificos: Optional[str] = Form(None),
+    itens_json: str = Form("[]"),
 ):
     import json as _json
     try:
-        detalhes = None
-        if detalhes_especificos:
-            try:
-                detalhes = _json.loads(detalhes_especificos)
-            except Exception:
-                logger.warning("detalhes_especificos inválido na atualização da ocorrência %s", ocorrencia_id, exc_info=True)
-                detalhes = None
+        # Reconstrói detalhes_especificos a partir dos "outros" (mesma técnica do create)
+        detalhes: dict = {}
+        if motivo == "OUTRO" and motivo_outro:
+            detalhes["motivo_outro"] = motivo_outro
+        if causa_raiz == "OUTRO" and causa_outro:
+            detalhes["causa_outro"] = causa_outro
+
+        # Hidden gera_coleta_present=1 deixa o form distinguir "desmarcado" (None) de "ausente"
+        gera_coleta_update: Optional[bool] = None
+        if gera_coleta_present:
+            gera_coleta_update = gera_coleta == "1"
+
+        itens: list[OcorrenciaItemCreate] = []
+        try:
+            for raw in _json.loads(itens_json or "[]"):
+                itens.append(OcorrenciaItemCreate(
+                    codprod=str(raw.get("codprod", "")),
+                    descricao_produto=raw.get("descricao_produto"),
+                    qtd_afetada=raw.get("qtd_afetada"),
+                    valor_unitario=raw.get("valor_unitario"),
+                    valor_total=raw.get("valor_total"),
+                    item_role=ItemRoleEnum(raw.get("item_role", "AFETADO")),
+                ))
+        except Exception:
+            logger.warning("Erro ao parsear itens_json em update", exc_info=True)
 
         data = OcorrenciaUpdate(
             tipo_ocorrencia=TipoOcorrenciaEnum(tipo_ocorrencia) if tipo_ocorrencia else None,
             motivo=MotivoEnum(motivo) if motivo else None,
             causa_raiz=CausaRaizEnum(causa_raiz) if causa_raiz else None,
             responsavel_tipo=ResponsavelTipoEnum(responsavel_tipo) if responsavel_tipo else None,
+            gera_coleta=gera_coleta_update,
+            motorista_coleta=motorista_coleta if gera_coleta_present else None,
             observacoes=observacoes or None,
-            detalhes_especificos=detalhes,
+            detalhes_especificos=detalhes or None,
             atribuido_a_id=atribuido_a_id or None,
+            itens=itens,
         )
         ocorrencia_service.update(db, ocorrencia_id, data, current_user)
         return RedirectResponse(

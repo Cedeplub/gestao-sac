@@ -31,6 +31,10 @@ class Ocorrencia(Base):
     causa_raiz = Column(String(50))
     responsavel_tipo = Column(String(50))
 
+    # Coleta (retorno da mercadoria)
+    gera_coleta = Column(Numeric(1), nullable=False, default=0)
+    motorista_coleta = Column(String(200))
+
     # Textos
     observacoes = Column(String(2000))
     motivo_pendencia = Column(String(1000))
@@ -70,3 +74,7 @@ class Ocorrencia(Base):
             except (ValueError, TypeError):
                 return None
         return None
+
+    @property
+    def gera_coleta_bool(self) -> bool:
+        return bool(self.gera_coleta)

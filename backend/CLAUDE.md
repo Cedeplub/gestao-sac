@@ -54,6 +54,7 @@ app-sac-gestao/
       13_tipo_ocorrencia_reposicao.sql  # adiciona REPOSICAO_CEDEP e REPOSICAO_BONIFICADA
       15_remover_status_encaminhado.sql # remove ENCAMINHADO do CHECK de status
       16_anexo_removido.sql         # adiciona ANEXO_REMOVIDO ao CHECK de tipo_evento
+      17_gera_coleta.sql            # adiciona colunas gera_coleta + motorista_coleta
 
   frontend/                         ← templates e assets (separado do backend)
     templates/
@@ -82,7 +83,9 @@ app-sac-gestao/
 ## Modelos de banco (schema gestao_sac)
 
 ### Ocorrencia
-Colunas: `id`, `numero_nota_fiscal`, `id_carregamento`, snapshot NF (`cliente`, `motorista`, `vendedor`, `transportadora`, `valor_total`, `data_faturamento`, `data_saida_carregamento`), `motivo`, `tipo_ocorrencia`, `causa_raiz`, `responsavel_tipo`, `observacoes`, `motivo_pendencia`, `resolucao_final`, `detalhes_especificos` (CLOB/JSON), `status`, `criado_por_id`, `atribuido_a_id`, `aprovado_por_id`, `aprovado_em`, `created_at`, `updated_at`.
+Colunas: `id`, `numero_nota_fiscal`, `id_carregamento`, snapshot NF (`cliente`, `motorista`, `vendedor`, `transportadora`, `valor_total`, `data_faturamento`, `data_saida_carregamento`), `motivo`, `tipo_ocorrencia`, `causa_raiz`, `responsavel_tipo`, `gera_coleta` (NUMBER(1) 0/1), `motorista_coleta` (VARCHAR2(200), nullable), `observacoes`, `motivo_pendencia`, `resolucao_final`, `detalhes_especificos` (CLOB/JSON), `status`, `criado_por_id`, `atribuido_a_id`, `aprovado_por_id`, `aprovado_em`, `created_at`, `updated_at`.
+
+> `gera_coleta` é booleano (0/1, Oracle < 23ai). Quando ligado, `motorista_coleta` guarda o nome de quem fará a coleta; ao desligar (no update), o motorista é zerado. Diferente de `motorista` (snapshot CEDEP — quem fez a entrega).
 
 > **Nomes Python = nomes de coluna no DB** (sem alias via `Column('nome_db', ...)`).
 
