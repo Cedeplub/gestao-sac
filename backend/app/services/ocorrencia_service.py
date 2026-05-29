@@ -46,18 +46,12 @@ def _validar_transicao(status_atual: str, novo_status: str) -> None:
 
 
 def _validar_pode_editar(ocorrencia: Ocorrencia, current_user) -> None:
-    """Operador só pode editar ocorrências onde é criador ou atribuído. Gerente pode tudo."""
+    """Qualquer usuário autenticado pode editar; FINALIZADO bloqueia todos."""
     if ocorrencia.status == "FINALIZADO":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Ocorrência finalizada não pode ser alterada.",
         )
-    if current_user.papel == "OPERADOR":
-        if (
-            ocorrencia.atribuido_a_id != current_user.id
-            and ocorrencia.criado_por_id != current_user.id
-        ):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado.")
 
 
 def _load(db: Session, ocorrencia_id: int) -> Ocorrencia:
@@ -332,10 +326,6 @@ class OcorrenciaService:
         if data.detalhes_especificos is not None:
             o.detalhes_especificos = json.dumps(data.detalhes_especificos)
         if data.atribuido_a_id is not None:
-            # Operadores só podem reatribuir para si mesmos
-            if current_user.papel == "OPERADOR" and data.atribuido_a_id != current_user.id:
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                    detail="Operadores só podem reatribuir para si mesmos.")
             o.atribuido_a_id = data.atribuido_a_id
 
         if data.itens is not None:

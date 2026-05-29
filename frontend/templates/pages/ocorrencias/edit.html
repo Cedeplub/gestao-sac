@@ -315,39 +315,104 @@
             <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
                 Atribuído a
             </label>
-            {% if current_user.papel == 'GERENTE' %}
             <select name="atribuido_a_id"
                     class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 sm:max-w-xs">
                 {% for u in usuarios %}
                 <option value="{{ u.id }}" {% if ocorrencia.atribuido_a_id == u.id %}selected{% endif %}>
-                    {{ u.nome }}{% if u.papel == 'GERENTE' %} (Gerente){% endif %}
+                    {{ u.nome }}{% if u.papel == 'GERENTE' %} (Gerente){% endif %}{% if u.id == current_user.id %} (você){% endif %}
                 </option>
                 {% endfor %}
             </select>
-            {% else %}
-            <input type="hidden" name="atribuido_a_id" value="{{ current_user.id }}" />
-            <p class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                {{ current_user.nome }} (você)
-            </p>
-            {% endif %}
-        </div>
-
-        <!-- ============================================================ -->
-        <!-- 5) Ações                                                      -->
-        <!-- ============================================================ -->
-        <div class="flex items-center justify-end gap-3 pb-4">
-            <a href="/ocorrencias/{{ ocorrencia.id }}"
-               class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
-                Cancelar
-            </a>
-            <button type="submit" :disabled="enviando"
-                    class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60">
-                <i x-show="!enviando" data-lucide="save" class="h-4 w-4"></i>
-                <i x-show="enviando" x-cloak data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
-                <span x-text="enviando ? 'Salvando…' : 'Salvar Alterações'"></span>
-            </button>
         </div>
 
     </form>
+
+    <!-- ============================================================ -->
+    <!-- 6) Anexos (formulários separados — fora da edição principal)   -->
+    <!-- ============================================================ -->
+    <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div class="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-5 py-3">
+            <i data-lucide="paperclip" class="h-4 w-4 text-purple-500"></i>
+            <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Anexos</h2>
+            {% if ocorrencia.anexos %}
+            <span class="ml-auto rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">
+                {{ ocorrencia.anexos | length }}
+            </span>
+            {% endif %}
+        </div>
+
+        <div class="divide-y divide-gray-50 px-5 py-2">
+            {% if ocorrencia.anexos %}
+            {% for anexo in ocorrencia.anexos %}
+            <div class="flex items-center justify-between gap-4 py-3">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                        <i data-lucide="file" class="h-4 w-4 text-gray-500"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold text-gray-800">{{ anexo.nome_arquivo }}</p>
+                        <p class="text-xs text-gray-400">
+                            {% if anexo.tamanho %}
+                                {% if anexo.tamanho > 1048576 %}{{ "%.1f"|format(anexo.tamanho / 1048576) }} MB
+                                {% elif anexo.tamanho > 1024 %}{{ "%.1f"|format(anexo.tamanho / 1024) }} KB
+                                {% else %}{{ anexo.tamanho }} bytes{% endif %}
+                            {% else %}—{% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex flex-shrink-0 items-center gap-2">
+                    <a href="/ocorrencias/{{ ocorrencia.id }}/anexos/{{ anexo.id }}/download"
+                       class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
+                        <i data-lucide="download" class="h-3.5 w-3.5"></i> Baixar
+                    </a>
+                    <form action="/ocorrencias/{{ ocorrencia.id }}/anexos/{{ anexo.id }}/deletar" method="post"
+                          onsubmit="return confirm('Remover este anexo?')">
+                        <input type="hidden" name="next" value="/ocorrencias/{{ ocorrencia.id }}/editar" />
+                        <button class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100">
+                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Remover
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p class="py-4 text-center text-sm text-gray-400">Nenhum anexo adicionado.</p>
+            {% endif %}
+        </div>
+
+        <div class="border-t border-gray-100 bg-gray-50 px-5 py-3">
+            <form action="/ocorrencias/{{ ocorrencia.id }}/anexos" method="post" enctype="multipart/form-data"
+                  class="flex items-center gap-3"
+                  x-data="{ enviandoAnexo: false }" @submit="enviandoAnexo = true">
+                <input type="hidden" name="next" value="/ocorrencias/{{ ocorrencia.id }}/editar" />
+                <input type="file" name="file" required
+                       class="flex-1 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-sm text-gray-600
+                              file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5
+                              file:text-xs file:font-semibold file:text-white hover:file:bg-blue-700" />
+                <button type="submit" :disabled="enviandoAnexo"
+                        class="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60">
+                    <i x-show="!enviandoAnexo" data-lucide="upload" class="h-4 w-4"></i>
+                    <i x-show="enviandoAnexo" x-cloak data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
+                    <span x-text="enviandoAnexo ? 'Enviando…' : 'Enviar anexo'"></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 7) Ações (botões fora do form, mas associados via form="...") -->
+    <!-- ============================================================ -->
+    <div class="flex items-center justify-end gap-3 pb-4">
+        <a href="/ocorrencias/{{ ocorrencia.id }}"
+           class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+            Cancelar
+        </a>
+        <button type="submit" form="form-ocorrencia" :disabled="enviando"
+                class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60">
+            <i x-show="!enviando" data-lucide="save" class="h-4 w-4"></i>
+            <i x-show="enviando" x-cloak data-lucide="loader-2" class="h-4 w-4 animate-spin"></i>
+            <span x-text="enviando ? 'Salvando…' : 'Salvar Alterações'"></span>
+        </button>
+    </div>
 </div>
 {% endblock %}

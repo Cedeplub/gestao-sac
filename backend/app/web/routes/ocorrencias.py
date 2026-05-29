@@ -583,20 +583,32 @@ async def web_comentar(
 
 # ---------- Anexos ----------
 
+def _safe_next(next_url: Optional[str], ocorrencia_id: int) -> str:
+    """Aceita só caminhos internos relativos a /ocorrencias/{id}/... — fallback p/ view."""
+    fallback = f"/ocorrencias/{ocorrencia_id}"
+    if not next_url:
+        return fallback
+    if next_url.startswith(f"/ocorrencias/{ocorrencia_id}"):
+        return next_url
+    return fallback
+
+
 @router.post("/{ocorrencia_id}/anexos", include_in_schema=False)
 async def upload_anexo(
     ocorrencia_id: int,
     current_user: Usuario = Depends(get_current_web_user),
     db: Session = Depends(get_write_db),
     file: UploadFile = File(...),
+    next: Optional[str] = Form(None),
 ):
+    destino = _safe_next(next, ocorrencia_id)
     try:
         ocorrencia_service.get(db, ocorrencia_id, current_user)
         await anexo_service.save(db, ocorrencia_id, file, current_user)
-        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Anexo+adicionado", status_code=302)
+        return RedirectResponse(url=f"{destino}?sucesso=Anexo+adicionado", status_code=302)
     except Exception as e:
         erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
-        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
+        return RedirectResponse(url=f"{destino}?erro={erro}", status_code=302)
 
 
 @router.get("/{ocorrencia_id}/anexos/{anexo_id}/download", include_in_schema=False)
@@ -617,10 +629,12 @@ async def delete_anexo(
     anexo_id: int,
     current_user: Usuario = Depends(get_current_web_user),
     db: Session = Depends(get_write_db),
+    next: Optional[str] = Form(None),
 ):
+    destino = _safe_next(next, ocorrencia_id)
     try:
         anexo_service.delete(db, anexo_id, current_user)
-        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?sucesso=Anexo+removido", status_code=302)
+        return RedirectResponse(url=f"{destino}?sucesso=Anexo+removido", status_code=302)
     except Exception as e:
         erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
-        return RedirectResponse(url=f"/ocorrencias/{ocorrencia_id}?erro={erro}", status_code=302)
+        return RedirectResponse(url=f"{destino}?erro={erro}", status_code=302)
