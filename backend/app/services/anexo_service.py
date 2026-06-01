@@ -83,15 +83,23 @@ class AnexoService:
 
         nome_arquivo = anexo.nome_arquivo
         ocorrencia_id = anexo.ocorrencia_id
+        caminho_arquivo = anexo.caminho_arquivo
 
-        if os.path.exists(anexo.caminho_arquivo):
-            os.remove(anexo.caminho_arquivo)
-
-        db.delete(anexo)
+        # Audit log + delete + commit ANTES de mexer no disco; se o INSERT do
+        # evento ou o DELETE falharem (ex.: constraint, FK), a transação é
+        # revertida e o arquivo continua íntegro no disco.
         evento_service.registrar_evento(
             db, ocorrencia_id, "ANEXO_REMOVIDO", None, None, nome_arquivo, current_user.id
         )
+        db.delete(anexo)
         db.commit()
+
+        if os.path.exists(caminho_arquivo):
+            try:
+                os.remove(caminho_arquivo)
+            except OSError:
+                # Linha já removida do banco; arquivo órfão é tolerável.
+                pass
 
     @staticmethod
     def get_file_path(db: Session, anexo_id: int, current_user) -> tuple[str, str]:

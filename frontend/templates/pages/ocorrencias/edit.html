@@ -330,6 +330,7 @@
     <!-- ============================================================ -->
     <!-- 6) Anexos (formulários separados — fora da edição principal)   -->
     <!-- ============================================================ -->
+    <div x-data="{ delAnexoId: null, delAnexoNome: '' }">
     <div class="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
         <div class="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-5 py-3">
             <i data-lucide="paperclip" class="h-4 w-4 text-purple-500"></i>
@@ -365,13 +366,11 @@
                        class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100">
                         <i data-lucide="download" class="h-3.5 w-3.5"></i> Baixar
                     </a>
-                    <form action="/ocorrencias/{{ ocorrencia.id }}/anexos/{{ anexo.id }}/deletar" method="post"
-                          onsubmit="return confirm('Remover este anexo?')">
-                        <input type="hidden" name="next" value="/ocorrencias/{{ ocorrencia.id }}/editar" />
-                        <button class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100">
-                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Remover
-                        </button>
-                    </form>
+                    <button type="button"
+                            @click='delAnexoId = {{ anexo.id }}; delAnexoNome = {{ anexo.nome_arquivo | tojson }}'
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100">
+                        <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Remover
+                    </button>
                 </div>
             </div>
             {% endfor %}
@@ -397,6 +396,46 @@
                 </button>
             </form>
         </div>
+    </div>
+
+    <!-- Modal: confirmar remoção de anexo -->
+    <div x-show="delAnexoId !== null" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div @click.outside="delAnexoId = null"
+             class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
+            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div class="flex items-center gap-2">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+                        <i data-lucide="trash-2" class="h-4 w-4 text-red-600"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900">Remover anexo</h3>
+                </div>
+                <button type="button" @click="delAnexoId = null"
+                        class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <form :action="`/ocorrencias/{{ ocorrencia.id }}/anexos/${delAnexoId}/deletar`"
+                  method="post" class="p-6 space-y-4">
+                <input type="hidden" name="next" value="/ocorrencias/{{ ocorrencia.id }}/editar" />
+                <p class="text-sm text-gray-600">
+                    Tem certeza que deseja remover
+                    <span class="font-semibold text-gray-900" x-text="delAnexoNome"></span>?
+                </p>
+                <p class="text-xs text-gray-400">Esta ação não pode ser desfeita.</p>
+                <div class="flex justify-end gap-3 pt-1">
+                    <button type="button" @click="delAnexoId = null"
+                            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700">
+                        <i data-lucide="trash-2" class="h-4 w-4"></i> Remover
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
     </div>
 
     <!-- ============================================================ -->

@@ -633,8 +633,9 @@ async def delete_anexo(
 ):
     destino = _safe_next(next, ocorrencia_id)
     try:
+        ocorrencia_service.get(db, ocorrencia_id, current_user)
         anexo_service.delete(db, anexo_id, current_user)
         return RedirectResponse(url=f"{destino}?sucesso=Anexo+removido", status_code=302)
     except Exception as e:
-        erro = _mensagem_erro(e, f"Erro em ação web sobre ocorrência {ocorrencia_id}")
+        erro = _mensagem_erro(e, f"Erro ao remover anexo {anexo_id} da ocorrência {ocorrencia_id}")
         return RedirectResponse(url=f"{destino}?erro={erro}", status_code=302)
