@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block page_content %}
-<div class="space-y-5" x-data="{ filtrosAvancados: false }">
+<div class="space-y-5" x-data="{ filtrosAvancados: {{ 'true' if motivo_filter or causa_filter or responsavel_filter or data_inicio_filter or data_fim_filter else 'false' }} }">
 
     <!-- KPIs (apenas gerente) -->
     {% if current_user.papel == 'GERENTE' %}
@@ -105,6 +105,19 @@
 
             <!-- Filtros avançados (colapsáveis) -->
             <div x-show="filtrosAvancados" x-cloak class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Motivo</label>
+                    <select name="motivo"
+                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                        <option value="">Todos</option>
+                        {% for m in motivos %}
+                        <option value="{{ m.value }}" {% if motivo_filter == m.value %}selected{% endif %}>
+                            {{ motivo_labels.get(m.value, m.value) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">Causa</label>
                     <select name="causa_raiz"
